@@ -825,15 +825,11 @@ private:
 	S32 mIncomingCompressedSize;		// original size of compressed msg (0 if uncomp.)
 	TPACKETID mCurrentRecvPacketID;       // packet ID of current receive packet (for reporting)
 
-//<edit> We need access to the message builder for this!
-public:
 	LLMessageBuilder* mMessageBuilder;
 	LLTemplateMessageBuilder* mTemplateMessageBuilder;
+	LLSDMessageBuilder* mLLSDMessageBuilder;
 	LLMessageReader* mMessageReader;
 	LLTemplateMessageReader* mTemplateMessageReader;
-//</edit>
-private:
-	LLSDMessageBuilder* mLLSDMessageBuilder;
 	LLSDMessageReader* mLLSDMessageReader;
 
 	friend class LLMessageHandlerBridge;
