@@ -2,16 +2,8 @@
 #include "llfloater.h"
 #include "llmessagelog.h"
 #include "lltemplatemessagereader.h"
-class LLNetListItem
-{
-public:
-	LLNetListItem(LLUUID id);
-	LLUUID mID;
-	BOOL mAutoName;
-	std::string mName;
-	std::string mPreviousRegionName;
-	LLCircuitData* mCircuitData;
-};
+#include "llfloatermessagebuilder.h"
+
 class LLFloaterMessageLogItem : public LLMessageLogEntry
 {
 public:
@@ -25,7 +17,10 @@ public:
 	std::string getFull(BOOL show_header = TRUE);
 	BOOL isOutgoing();
 private:
+<<<<<<< HEAD
 	static U8 sDecodeBuffer[8192];
+=======
+>>>>>>> master
 	static LLTemplateMessageReader* sTemplateMessageReader;
 	static std::string getString(LLTemplateMessageReader* readerp, const char* block_name, S32 block_num, const char* var_name, e_message_variable_type var_type, BOOL &returned_hex, BOOL summary_mode = FALSE);
 };
@@ -47,6 +42,7 @@ public:
 	S32 mProgress;
 	BOOL mFinished;
 private:
+	std::deque<LLMessageLogEntry> mQueuedMessages;
 	std::deque<LLMessageLogEntry>::iterator mIter;
 };
 class LLFloaterMessageLog : public LLFloater, public LLEventTimer

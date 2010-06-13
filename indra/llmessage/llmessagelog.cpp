@@ -9,18 +9,20 @@ LLMessageLogEntry::LLMessageLogEntry(EType type, LLHost from_host, LLHost to_hos
 {
 	if(data)
 	{
-		mData = new U8[data_size];
-		memcpy(mData, data, data_size);
+		mData.resize(data_size);
+		memcpy(&(mData[0]), data, data_size);
 	}
-	else
-	{
-		mData = NULL;
-	}
+}
+LLMessageLogEntry::LLMessageLogEntry(EType type, LLHost from_host, LLHost to_host, std::vector<U8> data, S32 data_size)
+:	mType(type),
+	mFromHost(from_host),
+	mToHost(to_host),
+	mDataSize(data_size),
+	mData(data)
+{
 }
 LLMessageLogEntry::~LLMessageLogEntry()
 {
-	// wtf, I'm not supposed to do this?
-	//if(mData && mDataSize) delete[] mData;
 }
 U32 LLMessageLog::sMaxSize = 4096; // testzone fixme todo boom
 std::deque<LLMessageLogEntry> LLMessageLog::sDeque;
@@ -38,6 +40,7 @@ void LLMessageLog::setCallback(void (*callback)(LLMessageLogEntry))
 void LLMessageLog::log(LLHost from_host, LLHost to_host, U8* data, S32 data_size)
 {
 	LLMessageLogEntry entry = LLMessageLogEntry(LLMessageLogEntry::TEMPLATE, from_host, to_host, data, data_size);
+	if(!entry.mDataSize || !entry.mData.size()) return;
 	if(sCallback) sCallback(entry);
 	if(!sMaxSize) return;
 	sDeque.push_back(entry);

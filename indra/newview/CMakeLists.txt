@@ -74,6 +74,7 @@ set(viewer_SOURCE_FILES
     llagentlanguage.cpp
     llagentpilot.cpp
     llanimstatelabels.cpp
+    llao.cpp
     llappviewer.cpp
     llassetuploadresponders.cpp
     llassetuploadqueue.cpp
@@ -508,6 +509,7 @@ set(viewer_HEADER_FILES
     llagentlanguage.h
     llagentpilot.h
     llanimstatelabels.h
+    llao.h
     llappearance.h
     llappviewer.h
     llassetuploadresponders.h

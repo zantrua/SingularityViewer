@@ -136,13 +136,12 @@ private:
 	//BOOL decodeData(const U8* buffer, const LLHost& sender );
 public:
 	BOOL decodeData(const U8* buffer, const LLHost& sender, BOOL custom = FALSE);
-private:
-	// </edit>
 
 	S32	mReceiveSize;
 	LLMessageTemplate* mCurrentRMessageTemplate;
 	LLMsgData* mCurrentRMessageData;
 	message_template_number_map_t& mMessageNumbers;
+	// </edit>
 };
 
 #endif // LL_LLTEMPLATEMESSAGEREADER_H
