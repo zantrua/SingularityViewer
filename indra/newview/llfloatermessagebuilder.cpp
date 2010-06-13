@@ -13,6 +13,7 @@
 #include "llviewerparcelmgr.h" // same for parcel
 #include "llscrolllistctrl.h"
 #include "llworld.h"
+#include "lltemplatemessagebuilder.h"
 
 ////////////////////////////////
 // LLNetListItem
@@ -900,52 +901,73 @@ void LLFloaterMessageBuilder::onClickSend(void* user_data)
 		return;
 	}
 	// Build and send
-	if(outgoing)
+	gMessageSystem->newMessage( message.c_str() );
+	for(parts_iter = parts.begin(); parts_iter != parts_end; ++parts_iter)
 	{
-		gMessageSystem->newMessage( message.c_str() );
-		for(parts_iter = parts.begin(); parts_iter != parts_end; ++parts_iter)
+		const char* block_name = (*parts_iter).name.c_str();
+		gMessageSystem->nextBlock(block_name);
+		std::vector<parts_var>::iterator part_var_end = (*parts_iter).vars.end();
+		for(std::vector<parts_var>::iterator part_var_iter = (*parts_iter).vars.begin();
+			part_var_iter != part_var_end; ++part_var_iter)
 		{
-			const char* block_name = (*parts_iter).name.c_str();
-			gMessageSystem->nextBlock(block_name);
-			std::vector<parts_var>::iterator part_var_end = (*parts_iter).vars.end();
-			for(std::vector<parts_var>::iterator part_var_iter = (*parts_iter).vars.begin();
-				part_var_iter != part_var_end; ++part_var_iter)
+			parts_var pv = (*part_var_iter);
+			if(!addField(pv.var_type, pv.name.c_str(), pv.value, pv.hex))
 			{
-				parts_var pv = (*part_var_iter);
-				if(!addField(pv.var_type, pv.name.c_str(), pv.value, pv.hex))
-				{
-					LLFloaterChat::addChat(LLChat(llformat("Error adding the provided data for %s '%s' to '%s' block", mvtstr(pv.var_type).c_str(), pv.name.c_str(), block_name)));
-					gMessageSystem->clearMessage();
-					return;
-				}
-			}
-		}
-
-		LLScrollListCtrl* scrollp = floaterp->getChild<LLScrollListCtrl>("net_list");
-		LLScrollListItem* selected_itemp = scrollp->getFirstSelected();
-
-		//if a specific circuit is selected, send it to that, otherwise send it to the current sim
-		if(selected_itemp)
-		{
-			LLNetListItem* itemp = findNetListItem(selected_itemp->getUUID());
-			LLScrollListText* textColumn = (LLScrollListText*)selected_itemp->getColumn(1);
-
-			//why would you send data through a dead circuit?
-			if(textColumn->getValue().asString() == "Dead")
-			{
-				LLFloaterChat::addChat(LLChat("No sending messages through dead circuits!"));
+				LLFloaterChat::addChat(LLChat(llformat("Error adding the provided data for %s '%s' to '%s' block", mvtstr(pv.var_type).c_str(), pv.name.c_str(), block_name)));
+				gMessageSystem->clearMessage();
 				return;
 			}
-
-			gMessageSystem->sendMessage(itemp->mCircuitData->getHost());
-		} else {
-			gMessageSystem->sendMessage(gAgent.getRegionHost());
 		}
 	}
-	else
+
+	LLScrollListCtrl* scrollp = floaterp->getChild<LLScrollListCtrl>("net_list");
+	LLScrollListItem* selected_itemp = scrollp->getFirstSelected();
+
+	//if a specific circuit is selected, send it to that, otherwise send it to the current sim
+	if(selected_itemp)
 	{
-		LLFloaterChat::addChat(LLChat("Incoming message isn't supported yet :("));
-		return;
+		LLNetListItem* itemp = findNetListItem(selected_itemp->getUUID());
+		LLScrollListText* textColumn = (LLScrollListText*)selected_itemp->getColumn(1);
+
+		//why would you send data through a dead circuit?
+		if(textColumn->getValue().asString() == "Dead")
+		{
+			LLFloaterChat::addChat(LLChat("No sending messages through dead circuits!"));
+			return;
+		}
+		if(outgoing)
+		{
+			gMessageSystem->sendMessage(itemp->mCircuitData->getHost());
+		} else {
+			LLTemplateMessageReader* tempTemplateMessageReader = new LLTemplateMessageReader(gMessageSystem->mMessageNumbers);
+			U8 builtMessageBuffer[MAX_BUFFER_SIZE];
+
+			gMessageSystem->mTemplateMessageBuilder->buildMessage(builtMessageBuffer, MAX_BUFFER_SIZE, 0);
+			gMessageSystem->clearMessage();
+			tempTemplateMessageReader->mCurrentRMessageTemplate = temp;
+			tempTemplateMessageReader->mReceiveSize = (S32)(sizeof builtMessageBuffer / sizeof builtMessageBuffer[0]);
+			llinfos << tempTemplateMessageReader->mReceiveSize << llendl;
+			tempTemplateMessageReader->readMessage(builtMessageBuffer, itemp->mCircuitData->getHost());
+
+			delete tempTemplateMessageReader;
+		}
+	} else {
+		if(outgoing)
+		{
+			gMessageSystem->sendMessage(gAgent.getRegionHost());
+		} else {
+			LLTemplateMessageReader* tempTemplateMessageReader = new LLTemplateMessageReader(gMessageSystem->mMessageNumbers);
+			U8 builtMessageBuffer[MAX_BUFFER_SIZE];
+
+			gMessageSystem->mTemplateMessageBuilder->buildMessage(builtMessageBuffer, MAX_BUFFER_SIZE, 0);
+			gMessageSystem->clearMessage();
+			tempTemplateMessageReader->mCurrentRMessageTemplate = temp;
+			tempTemplateMessageReader->mReceiveSize = (S32)(sizeof builtMessageBuffer / sizeof builtMessageBuffer[0]);
+			llinfos << tempTemplateMessageReader->mReceiveSize << llendl;
+			tempTemplateMessageReader->readMessage(builtMessageBuffer, gAgent.getRegionHost());
+
+			delete tempTemplateMessageReader;
+		}
 	}
 }
 BOOL LLFloaterMessageBuilder::handleKeyHere(KEY key, MASK mask)
