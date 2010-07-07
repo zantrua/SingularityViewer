@@ -67,6 +67,9 @@
 
 #include "llstoredmessage.h"
 #include "llsocks5.h"
+// <edit>
+#include "llnetcanary.h"
+// </edit>
 
 const U32 MESSAGE_MAX_STRINGS_LENGTH = 64;
 const U32 MESSAGE_NUMBER_OF_HASH_BUCKETS = 8192;
@@ -215,6 +218,12 @@ class LLMessageSystem : public LLMessageSenderInterface
  private:
 	U8					mSendBuffer[MAX_BUFFER_SIZE];
 	S32					mSendSize;
+	// <edit>
+	U32 mSpoofProtectionLevel;
+	std::vector<LLNetCanary*> mCanaries;
+	std::map<U32, LLNetCanary::entry> mCanaryEntries;
+	void (*mSpoofDroppedCallback)(LLNetCanary::entry);
+	// </edit>
 
 	bool				mBlockUntrustedInterface;
 	LLHost				mUntrustedInterface;
@@ -236,7 +245,6 @@ class LLMessageSystem : public LLMessageSenderInterface
 // </edit>
 	message_template_name_map_t		mMessageTemplates;
 	message_template_number_map_t		mMessageNumbers;
-
 // <edit>
 //public:
 // </edit>
@@ -346,7 +354,7 @@ public:
 	bool addCircuitCode(U32 code, const LLUUID& session_id);
 
 	BOOL	poll(F32 seconds); // Number of seconds that we want to block waiting for data, returns if data was received
-	BOOL	checkMessages( S64 frame_count = 0, bool faked_message = false, U8 fake_buffer[MAX_BUFFER_SIZE] = NULL, LLHost fake_host = LLHost(), S32 fake_size = NULL );
+	BOOL	checkMessages( S64 frame_count = 0, bool faked_message = false, U8 fake_buffer[MAX_BUFFER_SIZE] = NULL, LLHost fake_host = LLHost(), S32 fake_size = 0 );
 	void	processAcks();
 
 	BOOL	isMessageFast(const char *msg);
@@ -614,6 +622,11 @@ public:
 	// Change this message to be UDP black listed.
 	void banUdpMessage(const std::string& name);
 
+	// <edit>
+	void startSpoofProtection(U32 level);
+	void stopSpoofProtection();
+	void setSpoofDroppedCallback(void (*callback)(LLNetCanary::entry));
+	// </edit>
 
 private:
 	// A list of the circuits that need to be sent DenyTrustedCircuit messages.
@@ -756,7 +769,13 @@ private:
 	LLUUID mSessionID;
 	
 	void	addTemplate(LLMessageTemplate *templatep);
+// <edit>
+public:
+// </edit>
 	BOOL		decodeTemplate( const U8* buffer, S32 buffer_size, LLMessageTemplate** msg_template );
+// <edit>
+private:
+// </edit>
 
 	void		logMsgFromInvalidCircuit( const LLHost& sender, BOOL recv_reliable );
 	void		logTrustedMsgFromUntrustedCircuit( const LLHost& sender );

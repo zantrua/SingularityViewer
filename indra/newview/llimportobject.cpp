@@ -1,3 +1,4 @@
+
 // <edit>
 /** 
  * @file llimportobject.cpp
@@ -18,7 +19,10 @@
 #include "llscrolllistctrl.h"
 #include "llviewercontrol.h"
 #include "llfloaterimport.h"
-
+#include "llassetuploadresponders.h"
+#include "lleconomy.h"
+#include "llfloaterperms.h"
+#include "llviewerregion.h"
 
 // static vars
 bool LLXmlImport::sImportInProgress = false;
@@ -31,11 +35,16 @@ std::map<std::string, U8> LLXmlImport::sId2attachpt;
 std::map<U8, bool> LLXmlImport::sPt2watch;
 std::map<U8, LLVector3> LLXmlImport::sPt2attachpos;
 std::map<U8, LLQuaternion> LLXmlImport::sPt2attachrot;
+std::map<U32, std::queue<U32> > LLXmlImport::sLinkSets;
 int LLXmlImport::sPrimIndex = 0;
 int LLXmlImport::sAttachmentsDone = 0;
 std::map<std::string, U32> LLXmlImport::sId2localid;
 std::map<U32, LLVector3> LLXmlImport::sRootpositions;
+std::map<U32, LLQuaternion> LLXmlImport::sRootrotations;
 LLXmlImportOptions* LLXmlImport::sXmlImportOptions;
+std::map<LLUUID,LLUUID> LLXmlImport::sTextureReplace;
+int LLXmlImport::sTotalAssets = 0;
+int LLXmlImport::sUploadedAssets = 0;
 
 LLXmlImportOptions::LLXmlImportOptions(LLXmlImportOptions* options)
 {
@@ -45,6 +54,7 @@ LLXmlImportOptions::LLXmlImportOptions(LLXmlImportOptions* options)
 	mWearables = options->mWearables;
 	mSupplier = options->mSupplier;
 	mKeepPosition = options->mKeepPosition;
+	mAssetDir = options->mAssetDir;
 }
 LLXmlImportOptions::LLXmlImportOptions(std::string filename)
 :	mSupplier(NULL),
@@ -63,6 +73,7 @@ LLXmlImportOptions::LLXmlImportOptions(std::string filename)
 		llwarns << "Messed up data?" << llendl;
 		return;
 	}
+	mAssetDir = filename.substr(0,filename.find_last_of(".")) + "_assets";
 	init(llsd);
 }
 LLXmlImportOptions::LLXmlImportOptions(LLSD llsd)
@@ -72,12 +83,24 @@ LLXmlImportOptions::LLXmlImportOptions(LLSD llsd)
 {
 	init(llsd);
 }
-
+LLXmlImportOptions::~LLXmlImportOptions()
+{
+	clear();
+}
+void LLXmlImportOptions::clear()
+{
+	//for_each(mRootObjects.begin(), mRootObjects.end(), DeletePointer());
+	mRootObjects.clear();
+	//for_each(mChildObjects.begin(), mChildObjects.end(), DeletePointer());
+	mChildObjects.clear();
+	//for_each(mWearables.begin(), mWearables.end(), DeletePointer());
+	mWearables.clear();
+	//for_each(mAssets.begin(), mAssets.end(), DeletePointer());
+	mAssets.clear();
+}
 void LLXmlImportOptions::init(LLSD llsd)
 {
-	mRootObjects.clear();
-	mChildObjects.clear();
-	mWearables.clear();
+	clear();
 	// Separate objects and wearables
 	std::vector<LLImportObject*> unsorted_objects;
 	LLSD::map_iterator map_end = llsd.endMap();
@@ -104,7 +127,7 @@ void LLXmlImportOptions::init(LLSD llsd)
 		else
 			mChildObjects.push_back(unsorted_objects[i]);
 	}
-	
+
 	F32 throttle = gSavedSettings.getF32("OutBandwidth");
 	// Gross magical value that is 128kbit/s
 	// Sim appears to drop requests if they come in faster than this. *sigh*
@@ -115,6 +138,149 @@ void LLXmlImportOptions::init(LLSD llsd)
 	gMessageSystem->mPacketRing.setUseOutThrottle(TRUE);
 	
 }
+LLImportAssetData::LLImportAssetData(std::string infilename,LLUUID inassetid,LLAssetType::EType intype)
+{
+	LLTransactionID _tid;
+	_tid.generate();
+	assetid = _tid.makeAssetID(gAgent.getSecureSessionID());
+	tid = _tid;
+	oldassetid = inassetid;
+	type = intype;
+	inv_type = LLInventoryType::defaultForAssetType(type);
+	name = inassetid.asString(); //use the original asset id as the name
+	description = "";
+	filename = infilename;
+}
+//We dont need this yet, but its useful to have
+/*class LLImportTransferCallback : public LLInventoryCallback
+{
+public:
+        LLImportTransferCallback(LLImportAssetData* data)
+        {
+                mData = data;
+        }
+        void fire(const LLUUID &inv_item)
+        {
+		//add to the inventory inject array and inject after the prim has been made.
+        }
+private:
+        LLImportAssetData* data;
+};
+*/
+class LLImportInventoryResponder : public LLAssetUploadResponder
+{
+public:
+        LLImportInventoryResponder(const LLSD& post_data,
+                                                                const LLUUID& vfile_id,
+                                                                LLAssetType::EType asset_type, LLImportAssetData* data) : LLAssetUploadResponder(post_data, vfile_id, asset_type)
+        {
+                mData = data;
+        }
+
+        LLImportInventoryResponder(const LLSD& post_data, const std::string& file_name,
+                                                                                           LLAssetType::EType asset_type) : LLAssetUploadResponder(post_data, file_name, asset_type)
+        {
+
+        }
+        virtual void uploadComplete(const LLSD& content)
+        {
+		llinfos << "Adding " << content["new_inventory_item"].asUUID() << " " << content["new_asset"].asUUID() << " to inventory." << llendl;
+		//LLPointer<LLInventoryCallback> cb = new LLImportTransferCallback(mData);
+		
+                if(mPostData["folder_id"].asUUID().notNull())
+		{
+			LLPermissions perm;
+			U32 everyone_perms = PERM_NONE;
+			U32 group_perms = PERM_NONE;
+			U32 next_owner_perms = PERM_ALL;
+			perm.init(gAgent.getID(), gAgent.getID(), LLUUID::null, LLUUID::null);
+			if(content.has("new_next_owner_mask"))
+			{
+				// This is a new sim that provides creation perms so use them.
+				// Do not assume we got the perms we asked for in mPostData 
+				// since the sim may not have granted them all.
+				everyone_perms = content["new_everyone_mask"].asInteger();
+				group_perms = content["new_group_mask"].asInteger();
+				next_owner_perms = content["new_next_owner_mask"].asInteger();
+			}
+			else 
+			{
+				// This old sim doesn't provide creation perms so use old assumption-based perms.
+				if(mPostData["inventory_type"].asString() != "snapshot")
+				{
+					next_owner_perms = PERM_MOVE | PERM_TRANSFER;
+				}
+			}
+			perm.initMasks(PERM_ALL, PERM_ALL, everyone_perms, group_perms, next_owner_perms);
+			S32 creation_date_now = time_corrected();
+			LLPointer<LLViewerInventoryItem> item = new LLViewerInventoryItem(content["new_inventory_item"].asUUID(),
+												mPostData["folder_id"].asUUID(),
+												perm,
+												content["new_asset"].asUUID(),
+												mData->type,
+												mData->inv_type,
+												mPostData["name"].asString(),
+												mPostData["description"].asString(),
+												LLSaleInfo::DEFAULT,
+												LLInventoryItem::II_FLAGS_NONE,
+												creation_date_now);
+			gInventory.updateItem(item);
+			gInventory.notifyObservers();
+			LLXmlImport::sTextureReplace[mData->oldassetid] = content["new_asset"].asUUID();
+		}
+		LLXmlImport::sUploadedAssets++;
+		if(!LLXmlImport::sImportInProgress) return;
+		LLFloaterImportProgress::update();
+		if(LLXmlImport::sUploadedAssets < LLXmlImport::sTotalAssets)
+		{
+			LLImportAssetData* data = LLXmlImport::sXmlImportOptions->mAssets[LLXmlImport::sUploadedAssets];
+		        data->folderid = mData->folderid;
+			std::string url = gAgent.getRegion()->getCapability("NewFileAgentInventory");
+			if(!url.empty())
+			{
+				LLPointer<LLImageJ2C> integrity_test = new LLImageJ2C;
+				if( !integrity_test->loadAndValidate( data->filename ) )
+				{
+					llinfos << "Image: " << data->filename << " is corrupt." << llendl;
+				}
+				S32 file_size;
+				LLAPRFile infile ;
+				infile.open(data->filename, LL_APR_RB, LLAPRFile::global, &file_size);
+				if (infile.getFileHandle())
+				{
+					LLVFile file(gVFS, data->assetid, data->type, LLVFile::WRITE);
+					file.setMaxSize(file_size);
+					const S32 buf_size = 65536;
+					U8 copy_buf[buf_size];
+					while ((file_size = infile.read(copy_buf, buf_size)))
+					{
+						file.write(copy_buf, file_size);
+					}
+					
+					LLSD body;
+					body["folder_id"] = data->folderid;
+					body["asset_type"] = LLAssetType::lookup(data->type);
+					body["inventory_type"] = LLInventoryType::lookup(data->inv_type);
+					body["name"] = data->name;
+					body["description"] = data->description;
+					body["next_owner_mask"] = LLSD::Integer(U32_MAX);
+					body["group_mask"] = LLSD::Integer(U32_MAX);
+					body["everyone_mask"] = LLSD::Integer(U32_MAX);
+					body["expected_upload_cost"] = LLSD::Integer(LLGlobalEconomy::Singleton::getInstance()->getPriceUpload());
+					LLHTTPClient::post(url, body, new LLImportInventoryResponder(body, data->assetid, data->type,data));
+				}
+			}
+			else
+				llinfos << "NewFileAgentInventory does not exist!!!!" << llendl;
+		}
+		else
+			LLXmlImport::finish_init();
+		
+                
+        }
+private:
+        LLImportAssetData* mData;
+};
 
 std::string terse_F32_string( F32 f )
 {
@@ -147,6 +313,7 @@ std::string terse_F32_string( F32 f )
 
 LLImportWearable::LLImportWearable(LLSD sd)
 {
+	mOrginalLLSD = sd;
 	mName = sd["name"].asString();
 	mType = sd["wearabletype"].asInteger();
 
@@ -187,10 +354,59 @@ LLImportWearable::LLImportWearable(LLSD sd)
 	map_end = textures.endMap();
 	for( ; map_iter != map_end; ++map_iter)
 	{
+		mTextures.push_back((*map_iter).second);
 		mData += (*map_iter).first + " " + (*map_iter).second.asString() + "\n";
 	}
 }
+void LLImportWearable::replaceTextures(std::map<LLUUID,LLUUID> textures_replace)
+{
+	LLSD sd = mOrginalLLSD;
+	mName = sd["name"].asString();
+	mType = sd["wearabletype"].asInteger();
 
+	LLSD params = sd["params"];
+	LLSD textures = sd["textures"];
+
+	mData = "LLWearable version 22\n" + 
+			mName + "\n\n" + 
+			"\tpermissions 0\n" + 
+			"\t{\n" + 
+			"\t\tbase_mask\t7fffffff\n" + 
+			"\t\towner_mask\t7fffffff\n" + 
+			"\t\tgroup_mask\t00000000\n" + 
+			"\t\teveryone_mask\t00000000\n" + 
+			"\t\tnext_owner_mask\t00082000\n" + 
+			"\t\tcreator_id\t00000000-0000-0000-0000-000000000000\n" + 
+			"\t\towner_id\t" + gAgent.getID().asString() + "\n" + 
+			"\t\tlast_owner_id\t" + gAgent.getID().asString() + "\n" + 
+			"\t\tgroup_id\t00000000-0000-0000-0000-000000000000\n" + 
+			"\t}\n" + 
+			"\tsale_info\t0\n" + 
+			"\t{\n" + 
+			"\t\tsale_type\tnot\n" + 
+			"\t\tsale_price\t10\n" + 
+			"\t}\n" + 
+			"type " + llformat("%d", mType) + "\n";
+
+	mData += llformat("parameters %d\n", params.size());
+	LLSD::map_iterator map_iter = params.beginMap();
+	LLSD::map_iterator map_end = params.endMap();
+	for( ; map_iter != map_end; ++map_iter)
+	{
+		mData += (*map_iter).first + " " + terse_F32_string((*map_iter).second.asReal()) + "\n";
+	}
+
+	mData += llformat("textures %d\n", textures.size());
+	map_iter = textures.beginMap();
+	map_end = textures.endMap();
+	for( ; map_iter != map_end; ++map_iter)
+	{
+		LLUUID asset_id = (*map_iter).second.asUUID();
+		std::map<LLUUID,LLUUID>::iterator iter = textures_replace.find(asset_id);
+		if(iter != textures_replace.end()) asset_id = (*iter).second;
+		mData += (*map_iter).first + " " + asset_id.asString() + "\n";
+	}
+}
 //LLImportObject::LLImportObject(std::string id, std::string parentId)
 //	:	LLViewerObject(LLUUID::null, 9, NULL, TRUE),
 //		mId(id),
@@ -205,7 +421,7 @@ LLImportObject::LLImportObject(std::string id, LLSD prim)
 	importIsAttachment = false;
 	mId = id;
 	mParentId = "";
-	mPrimName = "Primitive";
+	mPrimName = "Object";
 	if(prim.has("parent"))
 	{
 		mParentId = prim["parent"].asString();
@@ -266,28 +482,25 @@ LLImportObject::LLImportObject(std::string id, LLSD prim)
 		LLTextureEntry* wat = new LLTextureEntry();
 		wat->fromLLSD(*array_iter);
 		LLTextureEntry te = *wat;
+		delete wat; //clean up yo memory
+		mTextures.push_back(te.getID());
 		setTE(i, te);
 		i++;
 	}
+	mTextures.unique();
 	if(prim.has("name"))
 	{
 		mPrimName = prim["name"].asString();
 	}
 }
-
-
-
-BuildingSupply::BuildingSupply() : LLEventTimer(0.1f)
-{
-}
 		
-BOOL BuildingSupply::tick()
+void LLXmlImport::rez_supply()
 {
-	if(LLXmlImport::sImportInProgress && (LLXmlImport::sPrimsNeeded > 0))
+	if(sImportInProgress && sXmlImportOptions && (sPrimsNeeded > 0))
 	{
-		LLXmlImport::sPrimsNeeded--;
+		sPrimsNeeded--;
 		// Need moar prims
-		if(LLXmlImport::sXmlImportOptions->mSupplier == NULL)
+		if(sXmlImportOptions->mSupplier == NULL)
 		{
 			gMessageSystem->newMessageFast(_PREHASH_ObjectAdd);
 			gMessageSystem->nextBlockFast(_PREHASH_AgentData);
@@ -324,41 +537,31 @@ BOOL BuildingSupply::tick()
 			gMessageSystem->addVector3Fast(_PREHASH_RayEnd, rezpos);
 			gMessageSystem->addUUIDFast(_PREHASH_RayTargetID, LLUUID::null);
 			gMessageSystem->addU8Fast(_PREHASH_RayEndIsIntersection, 0);
-			gMessageSystem->addVector3Fast(_PREHASH_Scale, LLXmlImport::sSupplyParams->getScale());
+			gMessageSystem->addVector3Fast(_PREHASH_Scale, sSupplyParams->getScale());
 			gMessageSystem->addQuatFast(_PREHASH_Rotation, LLQuaternion::DEFAULT);
 			gMessageSystem->addU8Fast(_PREHASH_State, 0);
 			gMessageSystem->sendReliable(gAgent.getRegionHost());
 		}
 		else // have supplier
 		{
-			try
-			{
-				gMessageSystem->newMessageFast(_PREHASH_ObjectDuplicate);
-				gMessageSystem->nextBlockFast(_PREHASH_AgentData);
-				gMessageSystem->addUUIDFast(_PREHASH_AgentID, gAgent.getID());
-				gMessageSystem->addUUIDFast(_PREHASH_SessionID, gAgent.getSessionID());
-				gMessageSystem->addUUIDFast(_PREHASH_GroupID, gAgent.getGroupID());
-				gMessageSystem->nextBlockFast(_PREHASH_SharedData);
-				
-				LLVector3 rezpos = gAgent.getPositionAgent() + LLVector3(0.0f, 0.0f, 2.0f);
-				rezpos -= LLXmlImport::sSupplyParams->getPositionRegion();
-				
-				gMessageSystem->addVector3Fast(_PREHASH_Offset, rezpos);
-				gMessageSystem->addU32Fast(_PREHASH_DuplicateFlags, 0);
-				gMessageSystem->nextBlockFast(_PREHASH_ObjectData);
-				gMessageSystem->addU32Fast(_PREHASH_ObjectLocalID, LLXmlImport::sXmlImportOptions->mSupplier->getLocalID());
-				gMessageSystem->sendReliable(gAgent.getRegionHost());
-			}
-			catch(int)
-			{
-				llwarns << "Abort! Abort!" << llendl;
-				return TRUE;
-			}
+			gMessageSystem->newMessageFast(_PREHASH_ObjectDuplicate);
+			gMessageSystem->nextBlockFast(_PREHASH_AgentData);
+			gMessageSystem->addUUIDFast(_PREHASH_AgentID, gAgent.getID());
+			gMessageSystem->addUUIDFast(_PREHASH_SessionID, gAgent.getSessionID());
+			gMessageSystem->addUUIDFast(_PREHASH_GroupID, gAgent.getGroupID());
+			gMessageSystem->nextBlockFast(_PREHASH_SharedData);
+			
+			LLVector3 rezpos = gAgent.getPositionAgent() + LLVector3(0.0f, 0.0f, 2.0f);
+			rezpos -= sSupplyParams->getPositionRegion();
+			
+			gMessageSystem->addVector3Fast(_PREHASH_Offset, rezpos);
+			gMessageSystem->addU32Fast(_PREHASH_DuplicateFlags, 0);
+			gMessageSystem->nextBlockFast(_PREHASH_ObjectData);
+			gMessageSystem->addU32Fast(_PREHASH_ObjectLocalID, sXmlImportOptions->mSupplier->getLocalID());
+			gMessageSystem->sendReliable(gAgent.getRegionHost());
 		}
 		LLFloaterImportProgress::update();
-		return FALSE;
 	}
-	return TRUE;
 }
 
 
@@ -454,23 +657,82 @@ void LLXmlImport::import(LLXmlImportOptions* import_options)
 	sImportInProgress = true;
 	sImportHasAttachments = (sId2attachpt.size() > 0);
 	sPrimsNeeded = (int)sPrims.size();
+	sTotalAssets = sXmlImportOptions->mAssets.size();
 	sPrimIndex = 0;
+	sUploadedAssets = 0;
 	sId2localid.clear();
 	sRootpositions.clear();
+	sRootrotations.clear();
+	sLinkSets.clear();
 
 	LLFloaterImportProgress::show();
 	LLFloaterImportProgress::update();
 
 	// Create folder
-	if((sXmlImportOptions->mWearables.size() > 0) || (sId2attachpt.size() > 0))
+	if((sXmlImportOptions->mWearables.size() > 0) || (sId2attachpt.size() > 0) || (sTotalAssets > 0))
 	{
 		sFolderID = gInventory.createNewCategory( gAgent.getInventoryRootID(), LLAssetType::AT_NONE, sXmlImportOptions->mName);
 	}
+	if(sXmlImportOptions->mReplaceTexture && sTotalAssets > 0 && !sXmlImportOptions->mAssetDir.empty())
+	{
+		LLUUID folder_id = gInventory.createNewCategory( sFolderID, LLAssetType::AT_NONE, "Textures");
+		//starting up the texture uploading
+		LLImportAssetData* data = sXmlImportOptions->mAssets[0];
+                data->folderid = folder_id;
+		sTextureReplace[data->oldassetid] = data->assetid;
+		std::string url = gAgent.getRegion()->getCapability("NewFileAgentInventory");
+		if(!url.empty())
+		{
+			LLPointer<LLImageJ2C> integrity_test = new LLImageJ2C;
+			if( !integrity_test->loadAndValidate( data->filename ) )
+			{
+				llinfos << "Image: " << data->filename << " is corrupt." << llendl;
+			}
+			S32 file_size;
+			LLAPRFile infile ;
+			infile.open(data->filename, LL_APR_RB, LLAPRFile::global, &file_size);
+			if (infile.getFileHandle())
+			{
+				LLVFile file(gVFS, data->assetid, data->type, LLVFile::WRITE);
+				file.setMaxSize(file_size);
+				const S32 buf_size = 65536;
+				U8 copy_buf[buf_size];
+				while ((file_size = infile.read(copy_buf, buf_size)))
+				{
+					file.write(copy_buf, file_size);
+				}
 
+				LLSD body;
+				body["folder_id"] = folder_id;
+				body["asset_type"] = LLAssetType::lookup(data->type);
+				body["inventory_type"] = LLInventoryType::lookup(data->inv_type);
+				body["name"] = data->name;
+				body["description"] = data->description;
+				body["next_owner_mask"] = LLSD::Integer(U32_MAX);
+				body["group_mask"] = LLSD::Integer(U32_MAX);
+				body["everyone_mask"] = LLSD::Integer(U32_MAX);
+				body["expected_upload_cost"] = LLSD::Integer(LLGlobalEconomy::Singleton::getInstance()->getPriceUpload());
+				LLHTTPClient::post(url, body, new LLImportInventoryResponder(body, data->assetid, data->type,data));
+			}
+		}
+		else
+		{
+			//maybe do legacy upload here?????
+			llinfos << "NewFileAgentInventory does not exist!!!!" << llendl;
+			LLXmlImport::finish_init();
+		}
+	}
+	else
+		LLXmlImport::finish_init();
+}
+
+void LLXmlImport::finish_init()
+{
 	// Go ahead and upload wearables
 	int num_wearables = sXmlImportOptions->mWearables.size();
 	for(int i = 0; i < num_wearables; i++)
 	{
+		sXmlImportOptions->mWearables[i]->replaceTextures(sTextureReplace); //hack for importing weable textures
 		LLAssetType::EType at = LLAssetType::AT_CLOTHING;
 		if(sXmlImportOptions->mWearables[i]->mType < 4) at = LLAssetType::AT_BODYPART;
 		LLUUID tid;
@@ -501,10 +763,9 @@ void LLXmlImport::import(LLXmlImportOptions* import_options)
 		gMessageSystem->addStringFast(_PREHASH_Description, "");
 		gMessageSystem->sendReliable(gAgent.getRegionHost());
 	}
-
-	new BuildingSupply();
+	// Go ahead and upload asset data
+	rez_supply();
 }
-
 // static
 void LLXmlImport::onNewPrim(LLViewerObject* object)
 {
@@ -530,12 +791,12 @@ void LLXmlImport::onNewPrim(LLViewerObject* object)
 	flags = flags & (~FLAGS_USE_PHYSICS);
 	object->setFlags(flags, TRUE);
 	object->setFlags(~flags, FALSE); // Can I improve this lol?
-
 	if(from->mParentId == "")
 	{
 		// this will be a root
 		sId2localid[from->mId] = object->getLocalID();
 		sRootpositions[object->getLocalID()] = from->getPosition();
+		sRootrotations[object->getLocalID()] = from->getRotation();
 		// If it's an attachment, set description
 		if(from->importIsAttachment)
 		{
@@ -551,40 +812,17 @@ void LLXmlImport::onNewPrim(LLViewerObject* object)
 	}
 	else
 	{
-		// Move it to its root before linking
+		//make positions and rotations offset from the root prim.
 		U32 parentlocalid = sId2localid[from->mParentId];
-		LLVector3 rootpos = sRootpositions[parentlocalid];
+		from->setPosition((from->getPosition() * sRootrotations[parentlocalid]) + sRootpositions[parentlocalid]);
+		from->setRotation(from->getRotation() * sRootrotations[parentlocalid]);
+		sLinkSets[parentlocalid].push(object->getLocalID()); //this is here so we dont get 1 prim objects into the linkset queue
 		
-		U8 data[256];
-		S32 offset = 0;
-		gMessageSystem->newMessageFast(_PREHASH_MultipleObjectUpdate);
-		gMessageSystem->nextBlockFast(_PREHASH_AgentData);
-		gMessageSystem->addUUIDFast(_PREHASH_AgentID, gAgent.getID());
-		gMessageSystem->addUUIDFast(_PREHASH_SessionID, gAgent.getSessionID());
-		gMessageSystem->nextBlockFast(_PREHASH_ObjectData);
-		gMessageSystem->addU32Fast(_PREHASH_ObjectLocalID, object->getLocalID());
-		gMessageSystem->addU8Fast(_PREHASH_Type, 5);
-		htonmemcpy(&data[offset], &(rootpos.mV), MVT_LLVector3, 12);
-		offset += 12;
-		htonmemcpy(&data[offset], &(from->getScale().mV), MVT_LLVector3, 12); 
-		offset += 12;
-		gMessageSystem->addBinaryDataFast(_PREHASH_Data, data, offset);
-		gMessageSystem->sendReliable(gAgent.getRegionHost());
-
-		// Link it up
-		gMessageSystem->newMessageFast(_PREHASH_ObjectLink);
-		gMessageSystem->nextBlockFast(_PREHASH_AgentData);
-		gMessageSystem->addUUIDFast(_PREHASH_AgentID, gAgent.getID());
-		gMessageSystem->addUUIDFast(_PREHASH_SessionID, gAgent.getSessionID());
-		gMessageSystem->nextBlockFast(_PREHASH_ObjectData);
-		gMessageSystem->addU32Fast(_PREHASH_ObjectLocalID, sId2localid[from->mParentId]);
-		gMessageSystem->nextBlockFast(_PREHASH_ObjectData);
-		gMessageSystem->addU32Fast(_PREHASH_ObjectLocalID, object->getLocalID());
-		gMessageSystem->sendReliable(gAgent.getRegionHost());
 	}
 	// Volume params
 	LLVolumeParams params = from->getVolume()->getParams();
 	object->setVolume(params, 0, false);
+	object->sendShapeUpdate();
 	// Extra params
 	if(from->isFlexible())
 	{
@@ -615,6 +853,8 @@ void LLXmlImport::onNewPrim(LLViewerObject* object)
 	if (from->getParameterEntryInUse(LLNetworkData::PARAMS_SCULPT))
 	{
 		LLSculptParams sculpt = *((LLSculptParams*)from->getParameterEntry(LLNetworkData::PARAMS_SCULPT));
+		if(sXmlImportOptions->mReplaceTexture && sTextureReplace.find(sculpt.getSculptTexture()) != sTextureReplace.end())
+			sculpt.setSculptTexture(sTextureReplace[sculpt.getSculptTexture()]);
 		object->setParameterEntry(LLNetworkData::PARAMS_SCULPT, sculpt, true);
 		object->setParameterEntryInUse(LLNetworkData::PARAMS_SCULPT, TRUE, true);
 		object->parameterChanged(LLNetworkData::PARAMS_SCULPT, true);
@@ -631,10 +871,10 @@ void LLXmlImport::onNewPrim(LLViewerObject* object)
 	{
 		const LLTextureEntry* wat = from->getTE(i);
 		LLTextureEntry te = *wat;
+		if(sXmlImportOptions->mReplaceTexture && sTextureReplace.find(te.getID()) != sTextureReplace.end())
+			te.setID(sTextureReplace[te.getID()]);
 		object->setTE(i, te);
 	}
-
-	object->sendShapeUpdate();
 	object->sendTEUpdate();
 	// Flag update is already coming from somewhere
 	//object->updateFlags();
@@ -690,8 +930,58 @@ void LLXmlImport::onNewPrim(LLViewerObject* object)
 		gMessageSystem->addStringFast(_PREHASH_Name, from->mPrimName);
 		gMessageSystem->sendReliable(gAgent.getRegionHost());
 	}
+
 	if(currPrimIndex + 1 >= (int)sPrims.size())
 	{
+		// Link time
+		int packet_len = 0;
+		for(std::map<U32, std::queue<U32> >::iterator itr = sLinkSets.begin();itr != sLinkSets.end();++itr)
+		{
+			std::queue<U32> linkset = (*itr).second;
+			gMessageSystem->newMessageFast(_PREHASH_ObjectLink);
+			gMessageSystem->nextBlockFast(_PREHASH_AgentData);
+			gMessageSystem->addUUIDFast(_PREHASH_AgentID, gAgent.getID());
+			gMessageSystem->addUUIDFast(_PREHASH_SessionID, gAgent.getSessionID());
+			gMessageSystem->nextBlockFast(_PREHASH_ObjectData);
+			gMessageSystem->addU32Fast(_PREHASH_ObjectLocalID, (*itr).first);//this is the parent prim
+			while(!linkset.empty())
+			{
+				if(packet_len == 254) //if we have 255 objects, using 254 because root counts as 1 too
+				{
+					gMessageSystem->sendReliable(gAgent.getRegionHost());
+					packet_len = 0;
+					gMessageSystem->newMessageFast(_PREHASH_ObjectLink);
+					gMessageSystem->nextBlockFast(_PREHASH_AgentData);
+					gMessageSystem->addUUIDFast(_PREHASH_AgentID, gAgent.getID());
+					gMessageSystem->addUUIDFast(_PREHASH_SessionID, gAgent.getSessionID());
+					gMessageSystem->nextBlockFast(_PREHASH_ObjectData);
+					gMessageSystem->addU32Fast(_PREHASH_ObjectLocalID, (*itr).first);//this is the parent prim
+				}
+				gMessageSystem->nextBlockFast(_PREHASH_ObjectData);
+				gMessageSystem->addU32Fast(_PREHASH_ObjectLocalID, linkset.front());
+				linkset.pop();
+				packet_len++;
+			}
+			if(packet_len) //send if it hasnt been yet
+			{
+				gMessageSystem->sendReliable(gAgent.getRegionHost());
+				packet_len = 0;
+			}
+		}
+
+		// stop the throttle
+		F32 throttle = gSavedSettings.getF32("OutBandwidth");
+		if(throttle != 0.)
+		{
+			gMessageSystem->mPacketRing.setOutBandwidth(throttle);
+			gMessageSystem->mPacketRing.setUseOutThrottle(TRUE);
+		}
+		else
+		{
+			gMessageSystem->mPacketRing.setOutBandwidth(0.0);
+			gMessageSystem->mPacketRing.setUseOutThrottle(FALSE);
+		}
+
 		if(sId2attachpt.size() == 0)
 		{
 			sImportInProgress = false;
@@ -732,21 +1022,9 @@ void LLXmlImport::onNewPrim(LLViewerObject* object)
 				gMessageSystem->sendReliable(gAgent.getRegionHost());
 			}
 		}
-		
-		F32 throttle = gSavedSettings.getF32("OutBandwidth");
-		if(throttle != 0.)
-		{
-			gMessageSystem->mPacketRing.setOutBandwidth(throttle);
-			gMessageSystem->mPacketRing.setUseOutThrottle(TRUE);
-		}
-		else
-		{
-			gMessageSystem->mPacketRing.setOutBandwidth(0.0);
-			gMessageSystem->mPacketRing.setUseOutThrottle(FALSE);
-		}
 	}
-	
 	LLFloaterImportProgress::update();
+	rez_supply();
 }
 
 // static

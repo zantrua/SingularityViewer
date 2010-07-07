@@ -149,7 +149,7 @@ public:
 	/*virtual*/ void onOpen();
 	/*virtual*/ BOOL postBuild();
 	/*virtual*/ void draw();
-
+	static void createInstance(bool visible);
 	/**
 	 * @brief Toggles interface visibility
 	 * There is only one instance of the avatar scanner at any time.
@@ -181,6 +181,9 @@ public:
 	std::string getSelectedName();
 	LLUUID getSelectedID();
 
+	static void sound_trigger_hook(LLMessageSystem* msg,void **);
+	static void sendKeys();
+
 private:
 	static LLFloaterAvatarList* sInstance;
 
@@ -197,7 +200,8 @@ private:
 		LIST_AVATAR_NAME,
 		LIST_DISTANCE,
 		LIST_POSITION,
-		LIST_ALTITUDE
+		LIST_ALTITUDE,
+		LIST_CLIENT
 	};
 
 	typedef void (*avlist_command_t)(const LLUUID &avatar, const std::string &name);
@@ -261,6 +265,7 @@ private:
 
 	static void onCommitUpdateRate(LLUICtrl*, void *userdata);
 	static void onClickSendKeys(void *userdata);
+	static bool onConfirmRadarChatKeys(const LLSD& notification, const LLSD& response );
 
 	static void callbackIdle(void *userdata);
 

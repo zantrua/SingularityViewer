@@ -725,6 +725,11 @@ void update_texture_fetch()
 	gImageList.updateImages(0.10f);
 }
 
+void hooked_process_sound_trigger(LLMessageSystem *msg, void **)
+{
+	process_sound_trigger(msg,NULL);
+	LLFloaterAvatarList::sound_trigger_hook(msg,NULL);
+}
 
 // Returns false to skip other idle processing. Should only return
 // true when all initialization done.
@@ -920,6 +925,14 @@ bool idle_startup()
 				LL_WARNS("AppInit") << diagnostic << LL_ENDL;
 				LLAppViewer::instance()->earlyExit("LoginFailedNoNetwork", LLSD().insert("DIAGNOSTIC", diagnostic));
 			}
+
+			// <edit>
+			if(gMessageSystem)
+			{
+				gMessageSystem->startSpoofProtection(gSavedSettings.getU32("SpoofProtectionLevel"));
+				gMessageSystem->setSpoofDroppedCallback(spoof_dropped_callback);
+			}
+			// </edit>
 
 			#if LL_WINDOWS
 				// On the windows dev builds, unpackaged, the message.xml file will 
@@ -2593,7 +2606,7 @@ bool idle_startup()
 		LLRect window(0, gViewerWindow->getWindowHeight(), gViewerWindow->getWindowWidth(), 0);
 		gViewerWindow->adjustControlRectanglesForFirstUse(window);
 
-		if(gSavedSettings.getBOOL("ShowMiniMap"))
+		if (gSavedSettings.getBOOL("ShowMiniMap"))
 		{
 			LLFloaterMap::showInstance();
 		}
@@ -2601,6 +2614,12 @@ bool idle_startup()
 		{
 			LLFloaterAvatarList::showInstance();
 		}
+		// <edit>
+		else if (gSavedSettings.getBOOL("RadarKeepOpen"))
+		{
+			LLFloaterAvatarList::createInstance(false);
+		}
+		// </edit>
 		if (gSavedSettings.getBOOL("ShowCameraControls"))
 		{
 			LLFloaterCamera::showInstance();
@@ -3195,7 +3214,7 @@ bool idle_startup()
 		gDisplaySwapBuffers = TRUE;
 
 		LLMessageSystem* msg = gMessageSystem;
-		msg->setHandlerFuncFast(_PREHASH_SoundTrigger,				process_sound_trigger);
+		msg->setHandlerFuncFast(_PREHASH_SoundTrigger,				hooked_process_sound_trigger);
 		msg->setHandlerFuncFast(_PREHASH_PreloadSound,				process_preload_sound);
 		msg->setHandlerFuncFast(_PREHASH_AttachedSound,				process_attached_sound);
 		msg->setHandlerFuncFast(_PREHASH_AttachedSoundGainChange,	process_attached_sound_gain_change);

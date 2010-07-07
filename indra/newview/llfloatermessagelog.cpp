@@ -469,7 +469,7 @@ std::list<LLNetListItem*> LLFloaterMessageLog::sNetListItems;
 std::deque<LLMessageLogEntry> LLFloaterMessageLog::sMessageLogEntries;
 std::vector<LLFloaterMessageLogItem> LLFloaterMessageLog::sFloaterMessageLogItems;
 LLMessageLogFilter LLFloaterMessageLog::sMessageLogFilter = LLMessageLogFilter();
-std::string LLFloaterMessageLog::sMessageLogFilterString("!StartPingCheck !CompletePingCheck !PacketAck !SimulatorViewerTimeMessage !SimStats !AgentUpdate !AgentAnimation !AvatarAnimation !ViewerEffect !CoarseLocationUpdate !LayerData !CameraConstraint !ObjectUpdateCached !RequestMultipleObjects !ObjectUpdate !ObjectUpdateCompressed !ImprovedTerseObjectUpdate !KillObject !ImagePacket !SendXferPacket !ConfirmXferPacket !TransferPacket");
+std::string LLFloaterMessageLog::sMessageLogFilterString("!StartPingCheck !CompletePingCheck !PacketAck !SimulatorViewerTimeMessage !SimStats !AgentUpdate !AgentAnimation !AvatarAnimation !ViewerEffect !CoarseLocationUpdate !LayerData !CameraConstraint !ObjectUpdateCached !RequestMultipleObjects !ObjectUpdate !ObjectUpdateCompressed !ImprovedTerseObjectUpdate !KillObject !ImagePacket !SendXferPacket !ConfirmXferPacket !TransferPacket !SoundTrigger !AttachedSound !PreloadSound");
 BOOL LLFloaterMessageLog::sBusyApplyingFilter = FALSE;
 LLFloaterMessageLog::LLFloaterMessageLog()
 :	LLFloater(),
@@ -810,10 +810,11 @@ BOOL LLFloaterMessageLog::onClickCloseCircuit(void* user_data)
 	return TRUE;
 }
 // static
-void LLFloaterMessageLog::onConfirmCloseCircuit(S32 option, LLSD payload)
+bool LLFloaterMessageLog::onConfirmCloseCircuit(const LLSD& notification, const LLSD& response )
 {
-	LLCircuitData* cdp = gMessageSystem->mCircuitInfo.findCircuit(LLHost(payload["circuittoclose"].asString()));
-	if(!cdp) return;
+	S32 option = LLNotification::getSelectedOption(notification, response);
+	LLCircuitData* cdp = gMessageSystem->mCircuitInfo.findCircuit(LLHost(notification["payload"]["circuittoclose"].asString()));
+	if(!cdp) return false;
 	LLViewerRegion* regionp = LLWorld::getInstance()->getRegion(cdp->getHost());
 	switch(option)
 	{
@@ -822,7 +823,7 @@ void LLFloaterMessageLog::onConfirmCloseCircuit(S32 option, LLSD payload)
 		gMessageSystem->sendReliable(cdp->getHost());
 		break;
 	case 2: // cancel
-		return;
+		return false;
 		break;
 	case 1: // no
 	default:
@@ -841,12 +842,15 @@ void LLFloaterMessageLog::onConfirmCloseCircuit(S32 option, LLSD payload)
 		payload["regionhost"] = myhost.getString();
 		LLNotifications::instance().add("GenericAlertYesCancel", args, payload, onConfirmRemoveRegion);
 	}
+	return false;
 }
 // static
-void LLFloaterMessageLog::onConfirmRemoveRegion(S32 option, LLSD payload)
+bool LLFloaterMessageLog::onConfirmRemoveRegion(const LLSD& notification, const LLSD& response )
 {
+	S32 option = LLNotification::getSelectedOption(notification, response);
 	if(option == 0) // yes
-		LLWorld::getInstance()->removeRegion(LLHost(payload["regionhost"].asString()));
+		LLWorld::getInstance()->removeRegion(LLHost(notification["payload"]["regionhost"].asString()));
+	return false;
 }
 // static
 void LLFloaterMessageLog::onClickFilterApply(void* user_data)
@@ -859,7 +863,8 @@ void LLFloaterMessageLog::startApplyingFilter(std::string filter, BOOL force)
 	LLMessageLogFilter new_filter = LLMessageLogFilter();
 	sMessageLogFilterString = filter;
 	new_filter.set(sMessageLogFilterString);
-	childSetText("filter_edit", filter + " ");
+	if(!filter.length() || filter.at(filter.length()-1) != ' ')
+		childSetText("filter_edit", filter + " ");
 	if(force
 		|| (new_filter.mNegativeNames != sMessageLogFilter.mNegativeNames)
 		|| (new_filter.mPositiveNames != sMessageLogFilter.mPositiveNames))
@@ -918,6 +923,7 @@ void LLFloaterMessageLog::onClickFilterChoice(void* user_data)
 	LLMenuGL* menu = new LLMenuGL(LLStringUtil::null);
 	menu->append(new LLMenuItemCallGL("No filter", onClickFilterMenu, NULL, (void*)""));
 	menu->append(new LLMenuItemCallGL("Fewer spammy messages", onClickFilterMenu, NULL, (void*)"!StartPingCheck !CompletePingCheck !PacketAck !SimulatorViewerTimeMessage !SimStats !AgentUpdate !AgentAnimation !AvatarAnimation !ViewerEffect !CoarseLocationUpdate !LayerData !CameraConstraint !ObjectUpdateCached !RequestMultipleObjects !ObjectUpdate !ObjectUpdateCompressed !ImprovedTerseObjectUpdate !KillObject !ImagePacket !SendXferPacket !ConfirmXferPacket !TransferPacket"));
+	menu->append(new LLMenuItemCallGL("Fewer spammy messages (minus sound crap)", onClickFilterMenu, NULL, (void*)"!StartPingCheck !CompletePingCheck !PacketAck !SimulatorViewerTimeMessage !SimStats !AgentUpdate !AgentAnimation !AvatarAnimation !ViewerEffect !CoarseLocationUpdate !LayerData !CameraConstraint !ObjectUpdateCached !RequestMultipleObjects !ObjectUpdate !ObjectUpdateCompressed !ImprovedTerseObjectUpdate !KillObject !ImagePacket !SendXferPacket !ConfirmXferPacket !TransferPacket !SoundTrigger !AttachedSound !PreloadSound"));
 	menu->append(new LLMenuItemCallGL("Object updates", onClickFilterMenu, NULL, (void*)"ObjectUpdateCached ObjectUpdate ObjectUpdateCompressed ImprovedTerseObjectUpdate KillObject RequestMultipleObjects"));
 	menu->append(new LLMenuItemCallGL("Abnormal", onClickFilterMenu, NULL, (void*)"Invalid TestMessage AddCircuitCode NeighborList AvatarTextureUpdate SimulatorMapUpdate SimulatorSetMap SubscribeLoad UnsubscribeLoad SimulatorReady SimulatorPresentAtLocation SimulatorLoad SimulatorShutdownRequest RegionPresenceRequestByRegionID RegionPresenceRequestByHandle RegionPresenceResponse UpdateSimulator LogDwellTime FeatureDisabled LogFailedMoneyTransaction UserReportInternal SetSimStatusInDatabase SetSimPresenceInDatabase OpenCircuit CloseCircuit DirFindQueryBackend DirPlacesQueryBackend DirClassifiedQueryBackend DirLandQueryBackend DirPopularQueryBackend GroupNoticeAdd DataHomeLocationRequest DataHomeLocationReply DerezContainer ObjectCategory ObjectExportSelected StateSave ReportAutosaveCrash AgentAlertMessage NearestLandingRegionRequest NearestLandingRegionReply NearestLandingRegionUpdated TeleportLandingStatusChanged ConfirmEnableSimulator KickUserAck SystemKickUser AvatarPropertiesRequestBackend UpdateParcel RemoveParcel MergeParcel LogParcelChanges CheckParcelSales ParcelSales StartAuction ConfirmAuctionStart CompleteAuction CancelAuction CheckParcelAuctions ParcelAuctions ChatPass EdgeDataPacket SimStatus ChildAgentUpdate ChildAgentAlive ChildAgentPositionUpdate ChildAgentDying ChildAgentUnknown AtomicPassObject KillChildAgents ScriptSensorRequest ScriptSensorReply DataServerLogout RequestInventoryAsset InventoryAssetResponse TransferInventory TransferInventoryAck EventLocationRequest EventLocationReply MoneyTransferBackend RoutedMoneyBalanceReply SetStartLocation NetTest SetCPURatio SimCrashed NameValuePair RemoveNameValuePair UpdateAttachment RemoveAttachment EmailMessageRequest EmailMessageReply InternalScriptMail ScriptDataRequest ScriptDataReply InviteGroupResponse TallyVotes LiveHelpGroupRequest LiveHelpGroupReply GroupDataUpdate LogTextMessage CreateTrustedCircuit ParcelRename SystemMessage RpcChannelRequest RpcChannelReply RpcScriptRequestInbound RpcScriptRequestInboundForward RpcScriptReplyInbound ScriptMailRegistration Error"));
 	menu->updateParent(LLMenuGL::sMenuContainer);

@@ -8,13 +8,14 @@
 #include "dohexeditor.h"
 #include "llinventory.h"
 #include "llviewerimage.h"
+#include "llassettype.h"
 
 class DOFloaterHex
 : public LLFloater
 {
 public:
-	DOFloaterHex(LLInventoryItem* item);
-	static void show(LLUUID item_id);
+	DOFloaterHex(LLUUID item_id, BOOL vfs=false, LLAssetType::EType asset_type = LLAssetType::AT_NONE);
+	static void show(LLUUID item_id, BOOL vfs=false, LLAssetType::EType asset_type = LLAssetType::AT_NONE);
 	BOOL postBuild(void);
 	void close(bool app_quitting);
 	static void imageCallback(BOOL success, 
@@ -33,7 +34,11 @@ public:
 	static void onSaveComplete(const LLUUID& asset_uuid, void* user_data, S32 status, LLExtStat ext_status);
 	static void onCommitColumnCount(LLUICtrl *control, void *user_data);
 	void handleSizing();
+	void readVFile();
 	LLInventoryItem* mItem;
+	LLUUID mAssetId;
+	LLAssetType::EType mAssetType;
+	BOOL mVFS;
 	DOHexEditor* mEditor;
 	static std::list<DOFloaterHex*> sInstances;
 private:

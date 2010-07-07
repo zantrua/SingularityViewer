@@ -232,9 +232,11 @@
 #include "dofloaterhex.h"
 #include "hgfloatertexteditor.h"
 #include "llfloatermessagelog.h"
-#include "llfloatermessagerewriter.h"
+#include "llfloatermessagetamperer.h"
 #include "llfloatermessagebuilder.h"
 #include "llao.h"
+#include "llfloatervfs.h"
+#include "llfloatervfsexplorer.h"
 #include "llfloaterexportregion.h"
 // </edit>
 
@@ -402,8 +404,10 @@ void handle_close_all_notifications(void*);
 void handle_reopen_with_hex_editor(void*);
 void handle_open_message_log(void*);
 void handle_open_message_builder(void*);
-void handle_open_message_rewriter(void*);
+void handle_open_message_tamperer(void*);
 void handle_edit_ao(void*);
+void handle_local_assets(void*);
+void handle_vfs_explorer(void*);
 // </edit>
 
 BOOL is_inventory_visible( void* user_data );
@@ -741,7 +745,50 @@ void init_client_menu(LLMenuGL* menu)
 
 	//menu->append(new LLMenuItemCallGL("Permissions Control", &show_permissions_control));
 	// this is now in the view menu so we don't need it here!
-	
+
+	// <edit>
+	{
+		LLMenuGL* sub = NULL;
+		sub = new LLMenuGL("Useful Features");
+		sub->append(new LLMenuItemCallGL(	"Close All Dialogs", 
+											&handle_close_all_notifications, NULL, NULL, 'D', MASK_CONTROL | MASK_ALT | MASK_SHIFT));
+
+		sub->append(new LLMenuItemCallGL(	"Reopen with Hex Editor", 
+											&handle_reopen_with_hex_editor, NULL));	
+										
+		sub->append(new LLMenuItemCallGL(  "Message Log", &handle_open_message_log, NULL));
+		sub->append(new LLMenuItemCallGL(  "Message Builder", &handle_open_message_builder, NULL));	
+		sub->append(new LLMenuItemCallGL(  "Message Tamperer", &handle_open_message_tamperer, NULL));
+
+		sub->append(new LLMenuItemCallGL(	"Local Assets...",
+												&handle_local_assets, NULL));
+		sub->append(new LLMenuItemCallGL(	"VFS Explorer",
+												&handle_vfs_explorer, NULL));
+		
+		sub->append(new LLMenuItemCheckGL( "Enable AO",
+										&menu_toggle_control,
+										NULL,
+										&menu_check_control,
+										(void*)"AO.Enabled"));
+		sub->append(new LLMenuItemCallGL(  "Edit AO...",  
+										&handle_edit_ao, NULL));
+		sub->append(new LLMenuItemCheckGL( "Nimble",
+											&menu_toggle_control,
+											NULL,
+											&menu_check_control,
+											(void*)"Nimble"));
+		sub->append(new LLMenuItemCheckGL( "ReSit",
+											&menu_toggle_control,
+											NULL,
+											&menu_check_control,
+											(void*)"ReSit"));
+		//these should always be last in a sub menu
+		sub->createJumpKeys();
+		menu->appendMenu(sub);
+	}
+	menu->appendSeparator();
+	// </edit>
+
 	{
 		// *TODO: Translate
 		LLMenuGL* sub = new LLMenuGL("Consoles");
@@ -896,7 +943,7 @@ void init_client_menu(LLMenuGL* menu)
 	{
 		sub_menu = new LLMenuGL("Interop");
 		sub_menu->append(new LLMenuItemCallGL("Teleport Region...", 
-			&LLFloaterTeleport::show, NULL, NULL, 'R', MASK_CONTROL|MASK_ALT|MASK_SHIFT));
+			&LLFloaterTeleport::show, NULL, NULL));
 		menu->appendMenu(sub_menu);
 	}
 	sub_menu = new LLMenuGL("UI");
@@ -1038,46 +1085,6 @@ void init_client_menu(LLMenuGL* menu)
 
 	menu->append(new LLMenuItemCallGL("Leave Admin Status", 
 		&handle_leave_god_mode, NULL, NULL, 'G', MASK_ALT | MASK_SHIFT | MASK_CONTROL));
-
-	// <edit>
-	menu->appendSeparator();
-	{
-		LLMenuGL* sub = NULL;
-		sub = new LLMenuGL("Useful Features");
-		sub->append(new LLMenuItemCallGL(	"Close All Dialogs", 
-											&handle_close_all_notifications, NULL, NULL, 'D', MASK_CONTROL | MASK_ALT | MASK_SHIFT));
-
-		sub->append(new LLMenuItemCallGL(	"Reopen with Hex Editor", 
-											&handle_reopen_with_hex_editor, NULL));	
-										
-		sub->append(new LLMenuItemCallGL(  "Message Log", &handle_open_message_log, NULL));
-
-		sub->append(new LLMenuItemCallGL(  "Message Builder", &handle_open_message_builder, NULL));	
-		sub->append(new LLMenuItemCallGL(  "Message Rewriter", &handle_open_message_rewriter, NULL));		
-
-		sub->append(new LLMenuItemCheckGL( "Enable AO",
-										&menu_toggle_control,
-										NULL,
-										&menu_check_control,
-										(void*)"AO.Enabled"));
-		sub->append(new LLMenuItemCallGL(  "Edit AO...",  
-										&handle_edit_ao, NULL));
-
-		sub->append(new LLMenuItemCheckGL( "Nimble",
-											&menu_toggle_control,
-											NULL,
-											&menu_check_control,
-											(void*)"Nimble"));
-		sub->append(new LLMenuItemCheckGL( "ReSit",
-											&menu_toggle_control,
-											NULL,
-											&menu_check_control,
-											(void*)"ReSit"));
-		//these should always be last in a sub menu
-		sub->createJumpKeys();
-		menu->appendMenu(sub);
-	}
-	// </edit>
 
 	menu->createJumpKeys();
 }
@@ -1384,7 +1391,7 @@ void init_debug_rendering_menu(LLMenuGL* menu)
 	menu->append(new LLMenuItemCallGL("Selected Texture Info", handle_selected_texture_info, NULL, NULL, 'T', MASK_CONTROL|MASK_SHIFT|MASK_ALT));
 	//menu->append(new LLMenuItemCallGL("Dump Image List", handle_dump_image_list, NULL, NULL, 'I', MASK_CONTROL|MASK_SHIFT));
 	
-	menu->append(new LLMenuItemToggleGL("Wireframe", &gUseWireframe));
+	menu->append(new LLMenuItemToggleGL("Wireframe", &gUseWireframe, 'R', MASK_CONTROL|MASK_SHIFT));
 
 	LLMenuItemCheckGL* item;
 	item = new LLMenuItemCheckGL("Object-Object Occlusion", menu_toggle_control, NULL, menu_check_control, (void*)"UseOcclusion", 'O', MASK_CONTROL|MASK_SHIFT);
@@ -1486,7 +1493,7 @@ void init_debug_avatar_menu(LLMenuGL* menu)
 	menu->append(new LLMenuItemCheckGL("Show Collision Skeleton",
 									   &LLPipeline::toggleRenderDebug, NULL,
 									   &LLPipeline::toggleRenderDebugControl,
-									   (void*)LLPipeline::RENDER_DEBUG_AVATAR_VOLUME, 'R', MASK_CONTROL|MASK_SHIFT));
+									   (void*)LLPipeline::RENDER_DEBUG_AVATAR_VOLUME, 'R', MASK_CONTROL|MASK_ALT|MASK_SHIFT));
 	menu->append(new LLMenuItemCheckGL("Display Agent Target",
 									   &LLPipeline::toggleRenderDebug, NULL,
 									   &LLPipeline::toggleRenderDebugControl,
@@ -2478,8 +2485,8 @@ class LLAvatarEnableDebug : public view_listener_t
 {
 	bool handleEvent(LLPointer<LLEvent> event, const LLSD& userdata)
 	{
-		bool new_value = gAgent.isGodlike();
-		gMenuHolder->findControl(userdata["control"].asString())->setValue(new_value);
+		//bool new_value = gAgent.isGodlike();
+		//gMenuHolder->findControl(userdata["control"].asString())->setValue(new_value);
 		return true;
 	}
 };
@@ -3079,9 +3086,9 @@ void handle_open_message_log(void*)
 	LLFloaterMessageLog::show();
 }
 
-void handle_open_message_rewriter(void*)
+void handle_open_message_tamperer(void*)
 {
-	LLFloaterMessageRewriter::show();
+	LLFloaterMessageTamperer::show();
 }
 
 void handle_open_message_builder(void*)
@@ -3092,6 +3099,16 @@ void handle_open_message_builder(void*)
 void handle_edit_ao(void*)
 {
 	LLFloaterAO::show();
+}
+
+void handle_local_assets(void*)
+{
+	LLFloaterVFS::show();
+}
+
+void handle_vfs_explorer(void*)
+{
+	LLFloaterVFSExplorer::show();
 }
 
 void handle_close_all_notifications(void*)

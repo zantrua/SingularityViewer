@@ -27,26 +27,56 @@
 std::list<DOFloaterHex*> DOFloaterHex::sInstances;
 S32 DOFloaterHex::sUploadAmount = 10;
 
-DOFloaterHex::DOFloaterHex(LLInventoryItem* item)
+DOFloaterHex::DOFloaterHex(LLUUID item_id, BOOL vfs, LLAssetType::EType asset_type)
 :	LLFloater()
 {
 	sInstances.push_back(this);
-	mItem = item;
+
+	mVFS = vfs;
+
+	//we are editing an asset directly from the VFS
+	if(vfs)
+	{
+		mAssetId = item_id;
+		mAssetType = asset_type;
+
+	//we are editing an inventory item
+	} else {
+		mItem = (LLInventoryItem*)gInventory.getItem(item_id);
+		mAssetId = mItem->getAssetUUID();
+		mAssetType = mItem->getType();
+	}
 	LLUICtrlFactory::getInstance()->buildFloater(this, "floater_hex.xml");
 }
 
-// static
-void DOFloaterHex::show(LLUUID item_id)
+//this bit should be rewritten entirely
+void DOFloaterHex::show(LLUUID item_id, BOOL vfs, LLAssetType::EType asset_type)
 {
-	LLInventoryItem* item = (LLInventoryItem*)gInventory.getItem(item_id);
-	if(item)
+	if(!vfs)
 	{
+		LLInventoryItem* item = (LLInventoryItem*)gInventory.getItem(item_id);
+		if(item)
+		{
+			S32 left, top;
+			gFloaterView->getNewFloaterPosition(&left, &top);
+			LLRect rect = gSavedSettings.getRect("FloaterHexRect");
+			rect.translate(left - rect.mLeft, top - rect.mTop);
+
+			DOFloaterHex* floaterp = new DOFloaterHex(item_id);
+			floaterp->setRect(rect);
+
+			gFloaterView->adjustToFitScreen(floaterp, FALSE);
+		}
+	} else if (item_id.notNull() && asset_type != LLAssetType::AT_NONE) {
 		S32 left, top;
 		gFloaterView->getNewFloaterPosition(&left, &top);
 		LLRect rect = gSavedSettings.getRect("FloaterHexRect");
 		rect.translate(left - rect.mLeft, top - rect.mTop);
-		DOFloaterHex* floaterp = new DOFloaterHex(item);
+		DOFloaterHex* floaterp = new DOFloaterHex(item_id, true, asset_type);
 		floaterp->setRect(rect);
+
+		llinfos << "Asset ID: " << item_id.asString() << llendl;
+
 		gFloaterView->adjustToFitScreen(floaterp, FALSE);
 	}
 }
@@ -80,7 +110,7 @@ BOOL DOFloaterHex::postBuild(void)
 	childSetEnabled("save_btn", false);
 	childSetAction("save_btn", onClickSave, this);
 
-	if(mItem)
+	if(!mVFS && mItem)
 	{
 		std::string title = "Hex editor: " + mItem->getName();
 		const char* asset_type_name = LLAssetType::lookup(mItem->getType());
@@ -90,19 +120,21 @@ BOOL DOFloaterHex::postBuild(void)
 		}
 		setTitle(title);
 	}
-#if OPENSIM_RULES!=1
-	if(mItem->getCreatorUUID() == gAgentID)
+	if(!mVFS)
 	{
-#endif /* OPENSIM_RULES!=1 */
 		// Load the asset
 		editor->setVisible(FALSE);
 		childSetText("status_text", std::string("Loading..."));
 		LLInventoryBackup::download(mItem, this, imageCallback, assetCallback);
-#if OPENSIM_RULES!=1
+	}
+	else if (mVFS) //the asset already exists in the VFS, we don't need to fetch it
+		           //and we don't want to associate it with an item
+	{
+		setTitle(mAssetId.asString());
+		readVFile();
 	} else {
 		this->close(false);
 	}
-#endif /* OPENSIM_RULES!=1 */
 
 	return TRUE;
 }
@@ -116,6 +148,7 @@ void DOFloaterHex::imageCallback(BOOL success,
 					BOOL final,
 					void* userdata)
 {
+
 	if(final)
 	{
 		LLInventoryBackup::callbackdata* data = static_cast<LLInventoryBackup::callbackdata*>(userdata);
@@ -156,6 +189,7 @@ void DOFloaterHex::assetCallback(LLVFS *vfs,
 				   LLAssetType::EType type,
 				   void* user_data, S32 status, LLExtStat ext_status)
 {
+
 	LLInventoryBackup::callbackdata* data = static_cast<LLInventoryBackup::callbackdata*>(user_data);
 	DOFloaterHex* floater = (DOFloaterHex*)(data->floater);
 	if(!floater) return;
@@ -236,6 +270,7 @@ void DOFloaterHex::assetCallback(LLVFS *vfs,
 // static
 void DOFloaterHex::onClickUpload(void* user_data)
 {
+
 	DOFloaterHex* floater = (DOFloaterHex*)user_data;
 	LLInventoryItem* item = floater->mItem;
 
@@ -426,6 +461,42 @@ void DOFloaterHex::handleSizing()
 		reshape(min_width, getRect().getHeight(), FALSE);
 		mEditor->reshape(mEditor->getRect().getWidth(), mEditor->getRect().getHeight(), TRUE);
 	}
+}
+
+void DOFloaterHex::readVFile()
+{
+	if(!mVFS) return;
+	// quick cut paste job
+	// Todo: this doesn't work for static vfs shit
+	LLVFile file(gVFS, mAssetId, mAssetType, LLVFile::READ);
+	if(file.getVFSThread())
+	{
+		S32 size = file.getSize();
+
+		char* buffer = new char[size];
+		if (buffer == NULL)
+		{
+			llerrs << "Memory Allocation Failed" << llendl;
+			return;
+		}
+
+		file.read((U8*)buffer, size);
+
+		std::vector<U8> new_data;
+		for(S32 i = 0; i < size; i++)
+			new_data.push_back(buffer[i]);
+
+		delete[] buffer;
+
+		mEditor->setValue(new_data);
+		mEditor->setVisible(TRUE);
+
+	}
+
+	childSetText("status_text", std::string("Editing VFile"));
+
+	childSetEnabled("upload_btn", false);
+	childSetEnabled("save_btn", false);
 }
 
 // </edit>

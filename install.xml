@@ -211,19 +211,19 @@
             <key>url</key>
             <uri>http://s3.amazonaws.com/viewer-source-downloads/install_pkgs/boost-1.39.0-darwin-20100226.tar.bz2</uri>
           </map>
-          <key>linux</key>
+           <key>linux</key>
           <map>
             <key>md5sum</key>
-            <string>d58ac1a8396ac983b67cc3e3541457e3</string>
+            <string>4db3d74e40d149eeec06f4d97a609bb1</string>
             <key>url</key>
-            <uri>http://s3.amazonaws.com/viewer-source-downloads/install_pkgs/boost-1.39.0-linux-20100222a.tar.bz2</uri>
-          </map>
+            <uri>http://s3.amazonaws.com/viewer-source-downloads/install_pkgs/boost-1.39.0-linux-20100624.tar.bz2</uri>
+	  </map>
           <key>windows</key>
           <map>
             <key>md5sum</key>
-            <string>2d970742d2601a41c6b7e7aec78c141f</string>
+            <string>d631c18f447ff4d413525f3c7d52db42</string>
             <key>url</key>
-            <uri>http://github.com/downloads/HazimGazov/Inertia/boost-1.39.0-windows-20100425.tar.bz2</uri>
+            <uri>http://cloud.github.com/downloads/HazimGazov/Inertia/boost-1.39-windows.tar.bz2</uri>
           </map>
         </map>
       </map>

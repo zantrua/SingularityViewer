@@ -76,6 +76,7 @@ set(viewer_SOURCE_FILES
     llanimstatelabels.cpp
     llao.cpp
     llappviewer.cpp
+    llassetconverter.cpp
     llassetuploadresponders.cpp
     llassetuploadqueue.cpp
     llaudiosourcevo.cpp
@@ -184,7 +185,7 @@ set(viewer_SOURCE_FILES
     llfloatermemleak.cpp
     llfloatermessagebuilder.cpp
     llfloatermessagelog.cpp
-    llfloatermessagerewriter.cpp
+    llfloatermessagetamperer.cpp
     llfloatermute.cpp
     llfloaternamedesc.cpp
     llfloaternewim.cpp
@@ -214,6 +215,8 @@ set(viewer_SOURCE_FILES
     llfloatertos.cpp
     llfloaterurldisplay.cpp
     llfloaterurlentry.cpp
+    llfloatervfs.cpp
+    llfloatervfsexplorer.cpp
     llfloatervoicedevicesettings.cpp
     llfloaterwater.cpp
     llfloaterwindlight.cpp
@@ -512,6 +515,7 @@ set(viewer_HEADER_FILES
     llao.h
     llappearance.h
     llappviewer.h
+    llassetconverter.h
     llassetuploadresponders.h
     llassetuploadqueue.h
     llaudiosourcevo.h
@@ -621,7 +625,7 @@ set(viewer_HEADER_FILES
     llfloatermemleak.h
     llfloatermessagebuilder.h
     llfloatermessagelog.h
-    llfloatermessagerewriter.h
+    llfloatermessagetamperer.h
     llfloatermute.h
     llfloaternamedesc.h
     llfloaternewim.h
@@ -651,6 +655,8 @@ set(viewer_HEADER_FILES
     llfloatertos.h
     llfloaterurldisplay.h
     llfloaterurlentry.h
+    llfloatervfs.h
+    llfloatervfsexplorer.h
     llfloatervoicedevicesettings.h
     llfloaterwater.h
     llfloaterwindlight.h
@@ -1485,8 +1491,8 @@ endif (INSTALL)
 # Add tests
 if (NOT STANDALONE)
 	ADD_VIEWER_BUILD_TEST(llagentaccess viewer)
-	ADD_VIEWER_BUILD_TEST(llworldmap viewer)
-	ADD_VIEWER_BUILD_TEST(llworldmipmap viewer)
+	#ADD_VIEWER_BUILD_TEST(llworldmap viewer)
+	#ADD_VIEWER_BUILD_TEST(llworldmipmap viewer)
 	ADD_VIEWER_BUILD_TEST(lltextureinfo viewer)
 	ADD_VIEWER_BUILD_TEST(lltextureinfodetails viewer)
 	ADD_VIEWER_BUILD_TEST(lltexturestatsuploader viewer)

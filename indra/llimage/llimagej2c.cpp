@@ -36,7 +36,9 @@
 #include "lldir.h"
 #include "llimagej2c.h"
 #include "llmemtype.h"
-
+// <edit>
+#include "llimagemetadatareader.h"
+// </edit>
 typedef LLImageJ2CImpl* (*CreateLLImageJ2CFunction)();
 typedef void (*DestroyLLImageJ2CFunction)(LLImageJ2CImpl*);
 typedef const char* (*EngineInfoLLImageJ2CFunction)();
@@ -297,6 +299,9 @@ BOOL LLImageJ2C::decodeChannels(LLImageRaw *raw_imagep, F32 decode_time, S32 fir
 		// Update the raw discard level
 		updateRawDiscardLevel();
 		mDecoding = TRUE;
+		// <edit>
+		raw_imagep->decodedImageComment = LLImageMetaDataReader::ExtractEncodedComment(getData(),getDataSize());
+		// </edit>
 		res = mImpl->decodeImpl(*this, *raw_imagep, decode_time, first_channel, max_channel_count);
 	}
 	
@@ -473,7 +478,7 @@ BOOL LLImageJ2C::validate(U8 *data, U32 file_size)
 	if ( res )
 	{
 		// Check to make sure that this instance has been initialized with data
-		if (!getData() || (0 == getDataSize()))
+		if (!getData() || (getDataSize() < 16))
 		{
 			setLastError("LLImageJ2C uninitialized");
 			res = FALSE;
