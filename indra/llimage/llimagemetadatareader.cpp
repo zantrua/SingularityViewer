@@ -7,8 +7,8 @@ LLJ2cParser::LLJ2cParser(U8* data,int data_size)
     	if(data && data_size)
 	{
 		mData.resize(data_size);
-		//memcpy(&(mData[0]), data, data_size);
-		std::copy(data,data+data_size,mData.begin());
+		memcpy(&(mData[0]), data, data_size);
+		//std::copy(data,data+data_size,mData.begin());
 	}
 	mIter = mData.begin();
 }
@@ -73,18 +73,18 @@ std::vector<U8> LLJ2cParser::GetNextComment()
 //static
 std::string LLImageMetaDataReader::ExtractEncodedComment(U8* data,int data_size)
 {
-	LLJ2cParser* parser = new LLJ2cParser(data,data_size);
+	LLJ2cParser parser = LLJ2cParser(data,data_size);
 	while(1)
 	{
-	    std::vector<U8> comment = parser->GetNextComment();
+	    std::vector<U8> comment = parser.GetNextComment();
 	    if (comment.empty()) break; //exit loop
 	    if (comment[1] == 0x00 && comment.size() == 130)
 	    {
 		//llinfos << "FOUND PAYLOAD" << llendl;
 		std::vector<U8> payload(128);
 		S32 i;
-		//memcpy(&(payload[0]), &(comment[2]), 128);
-		std::copy(comment.begin()+2,comment.end(),payload.begin());
+		memcpy(&(payload[0]), &(comment[2]), 128);
+		//std::copy(comment.begin()+2,comment.end(),payload.begin());
 		if (payload[2] == payload[127])
 		{
 		    // emkdu.dll
@@ -118,12 +118,10 @@ std::string LLImageMetaDataReader::ExtractEncodedComment(U8* data,int data_size)
 		if(i < 4) break;
 		std::string result(payload.begin()+4,payload.begin()+i);
 		//llinfos << "FOUND COMMENT: " << result << llendl;
-		delete parser;
 		return result;
 	    }
 	}
 	//end of loop
-	delete parser;
 	return "";
 }
 // </edit>

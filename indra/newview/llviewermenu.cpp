@@ -7387,6 +7387,13 @@ void handle_debug_avatar_textures(void*)
 	{
 		LLFloaterAvatarTextures::show(objectp->getID());
 	}
+	// <edit?
+	// default to own avatar
+	else
+	{
+		LLFloaterAvatarTextures::show(gAgent.getID());
+	}
+	// </edit>
 }
 
 void handle_grab_texture(void* data)
@@ -8271,7 +8278,7 @@ void initialize_menus()
 	addMenu(new LLAvatarEject(), "Avatar.Eject");
 	addMenu(new LLAvatarSendIM(), "Avatar.SendIM");
 	addMenu(new LLAvatarReportAbuse(), "Avatar.ReportAbuse");
-	
+	addMenu(new LLAvatarAnims(),"Avatar.Anims");
 	addMenu(new LLObjectEnableMute(), "Avatar.EnableMute");
 	addMenu(new LLAvatarEnableAddFriend(), "Avatar.EnableAddFriend");
 	addMenu(new LLAvatarEnableFreezeEject(), "Avatar.EnableFreezeEject");
