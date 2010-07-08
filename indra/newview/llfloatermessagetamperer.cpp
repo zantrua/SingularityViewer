@@ -158,9 +158,15 @@ BOOL LLFloaterMessageTamperer::onClickTamperIn(void* user_data)
 	std::string messageType = (const char*)user_data;
 
 	if(tamperedTypes[messageType] & INBOUND)
+	{
 		tamperedTypes[messageType] = tamperedTypes[messageType] & INBOUND;
+	}
 	else
+	{
 		tamperedTypes[messageType] = tamperedTypes[messageType] | INBOUND;
+	}
+
+	isAnythingTampered();
 
 	return true;
 }
@@ -171,11 +177,35 @@ BOOL LLFloaterMessageTamperer::onClickTamperOut(void* user_data)
 	std::string messageType = (const char*)user_data;
 
 	if(tamperedTypes[messageType] & OUTBOUND)
+	{
 		tamperedTypes[messageType] = tamperedTypes[messageType] & OUTBOUND;
+	}
 	else
+	{
 		tamperedTypes[messageType] = tamperedTypes[messageType] | OUTBOUND;
+	}
+
+	isAnythingTampered();
 
 	return true;
+}
+
+bool LLFloaterMessageTamperer::isAnythingTampered()
+{
+	std::map<std::string, int>::iterator message_types_end = tamperedTypes.end();
+	std::map<std::string, int>::iterator message_types_iter;
+
+	for(message_types_iter = tamperedTypes.begin(); message_types_iter != message_types_end; ++message_types_iter)
+	{
+		if((*message_types_iter).second != NONE)
+		{
+			tamperingAny = true;
+			return true;
+		}
+	}
+
+	tamperingAny = false;
+	return false;
 }
 
 // </edit>
