@@ -1,7 +1,7 @@
 <?xml version="1.0" encoding="utf-8" standalone="yes" ?>
 <floater name="Message Tamperer" title="Message Tamperer" width="400" min_width="400" height="500" min_height="500" can_close="true" can_resize="true" can_minimize="true">
-	<scroll_list column_padding="0" draw_heading="true" follows="left|top|right" left="10" top="-25"
-			  name="message_type_list" search_column="0" right="-10" bottom="25">
+	<scroll_list column_padding="0" draw_heading="true" follows="left|top|right|bottom" left="10" top="-25"
+			  name="message_type_list" search_column="0" right="-10" bottom="10">
 		<column dynamicwidth="true" name="MessageType" label="Message Type" />
 		<column name="tamper_in" label="In" width="50" />
 		<column name="tamper_out" label="Out" width="50" />
