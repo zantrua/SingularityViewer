@@ -200,8 +200,16 @@ public:
 	LLCheckBoxCtrl*	getCheckBox()				{ return mCheckBox; }
 	virtual BOOL	isText() const				{ return FALSE; }
 
+	//<edit>
+	void setClickCallback(BOOL (*callback)(void*), void* user_data);
+	//</edit>
+
 private:
 	LLCheckBoxCtrl* mCheckBox;
+	//<edit>
+	BOOL (*mCallback)(void*);
+	void* mUserData;
+	//</edit>
 };
 
 // <edit>

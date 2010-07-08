@@ -194,6 +194,10 @@ void LLScrollListIcon::draw(const LLColor4& color, const LLColor4& highlight_col
 // LLScrollListCheck
 //
 LLScrollListCheck::LLScrollListCheck(LLCheckBoxCtrl* check_box, S32 width)
+		// <edit>
+		: mCallback(NULL),
+		mUserData(NULL)
+		// </edit>
 {
 	mCheckBox = check_box;
 	LLRect rect(mCheckBox->getRect());
@@ -220,6 +224,14 @@ void LLScrollListCheck::draw(const LLColor4& color, const LLColor4& highlight_co
 	mCheckBox->draw();
 }
 
+//<edit>
+void LLScrollListCheck::setClickCallback(BOOL (*callback)(void*), void* user_data)
+{
+	mCallback = callback;
+	mUserData = user_data;
+}
+//</edit>
+
 BOOL LLScrollListCheck::handleClick()
 { 
 	if (mCheckBox->getEnabled())
@@ -227,6 +239,10 @@ BOOL LLScrollListCheck::handleClick()
 		mCheckBox->toggle();
 	}
 	// don't change selection when clicking on embedded checkbox
+	//<edit>
+	//call our callback method, if we have one
+	if(mCallback) mCallback(mUserData);
+	//</edit>
 	return TRUE; 
 }
 
