@@ -67,6 +67,7 @@ set(llmessage_SOURCE_FILES
     llsdhttpserver.cpp
     llsdmessagebuilder.cpp
     llsdmessagereader.cpp
+	llmessagetamperer.cpp
     llsdrpcclient.cpp
     llsdrpcserver.cpp
     llservicebuilder.cpp
@@ -142,6 +143,7 @@ set(llmessage_HEADER_FILES
     llmessageconfig.h
     llmessagelog.h
     llmessagereader.h
+	llmessagetamperer.h
     llmessagetemplate.h
     llmessagetemplateparser.h
     llmessagethrottle.h

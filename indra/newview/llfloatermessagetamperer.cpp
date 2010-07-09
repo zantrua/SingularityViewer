@@ -12,16 +12,13 @@
 #include "llviewerwindow.h" // alertXml
 #include "llmessagetemplate.h"
 #include "llmessageconfig.h"
+#include "llmessagetamperer.h"
 #include <boost/tokenizer.hpp>
 #include "llmenugl.h"
 
 //todo: separate tamperer from floater
 
 LLFloaterMessageTamperer* LLFloaterMessageTamperer::sInstance;
-std::map<std::string, int> LLFloaterMessageTamperer::tamperedTypes;
-
-//keep this set at false until we actually start tampering with a message type to avoid any needless checks
-bool LLFloaterMessageTamperer::tamperingAny = false;
 
 LLFloaterMessageTamperer::LLFloaterMessageTamperer()
 :	LLFloater()
@@ -44,7 +41,7 @@ BOOL LLFloaterMessageTamperer::postBuild()
 {
 
 	//populate the map of messages to tamper
-	if(tamperedTypes.empty())
+	if(LLMessageTamperer::tamperedTypes.empty())
 	{
 		std::vector<std::string> names;
 		LLMessageSystem::message_template_name_map_t::iterator temp_end = gMessageSystem->mMessageTemplates.end();
@@ -59,7 +56,7 @@ BOOL LLFloaterMessageTamperer::postBuild()
 
 		for(names_iter = names.begin(); names_iter != names_end; ++names_iter)
 		{
-			tamperedTypes[(*names_iter)] = NONE;
+			LLMessageTamperer::tamperedTypes[(*names_iter)] = MessageDirection::NONE;
 		}
 
 		names.clear();
@@ -78,13 +75,11 @@ void LLFloaterMessageTamperer::refreshTamperedMessages()
 	LLUUID selected_id = scrollp->getFirstSelected() ? scrollp->getFirstSelected()->getUUID() : LLUUID::null;
 	S32 scroll_pos = scrollp->getScrollPos();
 	scrollp->clearRows();
-
-	llinfos << tamperedTypes.size() << llendl;
 	
-	std::map<std::string, int>::iterator message_types_end = tamperedTypes.end();
+	std::map<std::string, int>::iterator message_types_end = LLMessageTamperer::tamperedTypes.end();
 	std::map<std::string, int>::iterator message_types_iter;
 
-	for(message_types_iter = tamperedTypes.begin(); message_types_iter != message_types_end; ++message_types_iter)
+	for(message_types_iter = LLMessageTamperer::tamperedTypes.begin(); message_types_iter != message_types_end; ++message_types_iter)
 	{
 		LLSD element;
 
@@ -106,17 +101,17 @@ void LLFloaterMessageTamperer::refreshTamperedMessages()
 		LLScrollListCheck* tamper_in_elem = (LLScrollListCheck*)scroll_itemp->getColumn(1);
 		LLScrollListCheck* tamper_out_elem = (LLScrollListCheck*)scroll_itemp->getColumn(2);
 
-		if((direction & INBOUND) && (direction & OUTBOUND))
+		if((direction & MessageDirection::INBOUND) && (direction & MessageDirection::OUTBOUND))
 		{
 			tamper_in_elem->setValue(TRUE);
 			tamper_out_elem->setValue(TRUE);
 		}
-		else if(direction & INBOUND)
+		else if(direction & MessageDirection::INBOUND)
 		{
 			tamper_in_elem->setValue(TRUE);
 			tamper_out_elem->setValue(FALSE);
 		}
-		else if(direction & OUTBOUND)
+		else if(direction & MessageDirection::OUTBOUND)
 		{
 			tamper_in_elem->setValue(FALSE);
 			tamper_out_elem->setValue(TRUE);
@@ -137,36 +132,20 @@ void LLFloaterMessageTamperer::refreshTamperedMessages()
 }
 
 //static
-bool LLFloaterMessageTamperer::isTampered(std::string messageType, bool inbound)
-{
-	if(tamperedTypes[messageType] == NONE)
-		return false;
-
-	if(inbound)
-	{
-		return (tamperedTypes[messageType] & INBOUND);
-	}
-	else
-	{
-		return (tamperedTypes[messageType] & OUTBOUND);
-	}
-}
-
-//static
 BOOL LLFloaterMessageTamperer::onClickTamperIn(void* user_data)
 {
 	std::string messageType = (const char*)user_data;
 
-	if(tamperedTypes[messageType] & INBOUND)
+	if(LLMessageTamperer::tamperedTypes[messageType] & MessageDirection::INBOUND)
 	{
-		tamperedTypes[messageType] = tamperedTypes[messageType] & INBOUND;
+		LLMessageTamperer::tamperedTypes[messageType] = LLMessageTamperer::tamperedTypes[messageType] & MessageDirection::INBOUND;
+		LLMessageTamperer::isAnythingTampered();
 	}
 	else
 	{
-		tamperedTypes[messageType] = tamperedTypes[messageType] | INBOUND;
+		LLMessageTamperer::tamperedTypes[messageType] = LLMessageTamperer::tamperedTypes[messageType] | MessageDirection::INBOUND;
+		LLMessageTamperer::tamperingAny = true;
 	}
-
-	isAnythingTampered();
 
 	return true;
 }
@@ -176,36 +155,18 @@ BOOL LLFloaterMessageTamperer::onClickTamperOut(void* user_data)
 {
 	std::string messageType = (const char*)user_data;
 
-	if(tamperedTypes[messageType] & OUTBOUND)
+	if(LLMessageTamperer::tamperedTypes[messageType] & MessageDirection::OUTBOUND)
 	{
-		tamperedTypes[messageType] = tamperedTypes[messageType] & OUTBOUND;
+		LLMessageTamperer::tamperedTypes[messageType] = LLMessageTamperer::tamperedTypes[messageType] & MessageDirection::OUTBOUND;
+		LLMessageTamperer::isAnythingTampered();
 	}
 	else
 	{
-		tamperedTypes[messageType] = tamperedTypes[messageType] | OUTBOUND;
+		LLMessageTamperer::tamperedTypes[messageType] = LLMessageTamperer::tamperedTypes[messageType] | MessageDirection::OUTBOUND;
+		LLMessageTamperer::tamperingAny = true;
 	}
-
-	isAnythingTampered();
 
 	return true;
-}
-
-bool LLFloaterMessageTamperer::isAnythingTampered()
-{
-	std::map<std::string, int>::iterator message_types_end = tamperedTypes.end();
-	std::map<std::string, int>::iterator message_types_iter;
-
-	for(message_types_iter = tamperedTypes.begin(); message_types_iter != message_types_end; ++message_types_iter)
-	{
-		if((*message_types_iter).second != NONE)
-		{
-			tamperingAny = true;
-			return true;
-		}
-	}
-
-	tamperingAny = false;
-	return false;
 }
 
 // </edit>
