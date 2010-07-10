@@ -52,6 +52,7 @@
 
 //<edit>
 #include "llmessagelog.h"
+#include "llmessagetamperer.h"
 #include "message.h"
 //</edit>
 
@@ -280,6 +281,7 @@ BOOL LLPacketRing::sendPacket(int h_socket, char * send_buffer, S32 buf_size, LL
 {
 	//<edit>
 	LLMessageLog::log(LLHost(16777343, gMessageSystem->getListenPort()), host, (U8*)send_buffer, buf_size);
+	LLMessageTamperer::tamper(LLHost(16777343, gMessageSystem->getListenPort()), host, (U8*)send_buffer, buf_size);
 	//</edit>
 	BOOL status = TRUE;
 	

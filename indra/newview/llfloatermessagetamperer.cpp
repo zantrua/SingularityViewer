@@ -15,6 +15,7 @@
 #include "llmessagetamperer.h"
 #include <boost/tokenizer.hpp>
 #include "llmenugl.h"
+#include "llmessagetamperinghelper.h"
 
 //todo: separate tamperer from floater
 
@@ -24,11 +25,11 @@ LLFloaterMessageTamperer::LLFloaterMessageTamperer()
 :	LLFloater()
 {
 	sInstance = this;
+	LLMessageTamperingHelper::init();
 	LLUICtrlFactory::getInstance()->buildFloater(this, "floater_message_tamperer.xml");
 }
 LLFloaterMessageTamperer::~LLFloaterMessageTamperer()
 {
-	
 	sInstance = NULL;
 }
 // static

@@ -19,6 +19,8 @@ class LLMessageTamperer
 public:
 	static std::map<std::string, int> tamperedTypes;
 	static bool tamperingAny;
+	static bool busyTampering;
+	static bool sendingTampered;
 
 	static bool isTampered(std::string messageType, bool inbound);
 	static bool isAnythingTampered();

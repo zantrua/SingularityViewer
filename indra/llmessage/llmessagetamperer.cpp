@@ -16,6 +16,10 @@ void (*(LLMessageTamperer::sCallback))(std::string, LLHost) = NULL;
 
 //keep this set at false until we actually start tampering with a message type to avoid any needless checks
 bool LLMessageTamperer::tamperingAny = false;
+//is our callback busy tampering with a message?
+bool LLMessageTamperer::busyTampering = false;
+//are we sending out a message we've tampered with right now?
+bool LLMessageTamperer::sendingTampered = false;
 
 //static
 bool LLMessageTamperer::isTampered(std::string messageType, bool inbound)

@@ -91,6 +91,28 @@
        text="$canceltext"/>
     </form>
   </template>
+  
+  <template name="yesnocancelstopbuttons">
+    <form>
+      <button
+       default="true"
+       index="0"
+       name="Yes"
+       text="$yestext"/>
+      <button
+       index="1"
+       name="No"
+       text="$notext"/>
+      <button
+       index="2"
+       name="Cancel"
+       text="$canceltext"/>
+       <button
+       index="3"
+       name="Stop"
+       text="$stoptext"/>
+    </form>
+  </template>
 
   <notification
    functor="GenericAcknowledge"
@@ -6479,6 +6501,19 @@ The region you have entered is running a different simulator version. Click this
    priority="high"
    type="notifytip">
 The URL you clicked cannot be opened from this web browser.
+  </notification>
+  
+    <notification
+   icon="alertmodal.tga"
+   name="TamperMessage"
+   type="alertmodal">
+A message of type [MESSAGETYPE] is [DIRECTION], what do you wish to do?
+    <usetemplate
+     stoptext="Stop tampering"
+     canceltext="Stop tampering with this type"
+     name="yesnocancelstopbuttons"
+     notext="Don&apos;t Tamper"
+     yestext="Tamper With"/>
   </notification>
 
   <global name="UnsupportedCPU">

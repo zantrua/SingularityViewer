@@ -90,6 +90,7 @@
 // <edit>
 #include "llrand.h"
 #include "llmessagelog.h"
+#include "llmessagetamperer.h"
 // </edit>
 
 // Constants
@@ -650,6 +651,7 @@ BOOL LLMessageSystem::checkMessages( S64 frame_count, bool faked_message, U8 fak
  		if(mTrueReceiveSize && receive_size > (S32) LL_MINIMUM_VALID_PACKET_SIZE && !faked_message)
  		{
  			LLMessageLog::log(mLastSender, LLHost(16777343, mPort), buffer, mTrueReceiveSize);
+			LLMessageTamperer::tamper(mLastSender, LLHost(16777343, mPort), buffer, mTrueReceiveSize);
  		}
  		// </edit>
 
