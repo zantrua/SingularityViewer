@@ -12,6 +12,7 @@
 #include "llmessagetemplate.h"
 #include "llmessageconfig.h"
 #include <boost/tokenizer.hpp>
+#include "llmessagelog.h"
 
 class LLMessageTamperer
 {
@@ -21,6 +22,11 @@ public:
 
 	static bool isTampered(std::string messageType, bool inbound);
 	static bool isAnythingTampered();
+	static void tamper(LLHost from_host, LLHost to_host, U8* data, S32 data_size);
+	static void setCallback(void (*callback)(std::string, LLHost));
+
+private:
+	static void (*sCallback)(std::string, LLHost);
 };
 
 struct MessageDirection

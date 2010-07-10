@@ -19,10 +19,13 @@ public:
 class LLFloaterMessageBuilder : public LLFloater, public LLEventTimer
 {
 public:
-	LLFloaterMessageBuilder(std::string initial_text);
+	LLFloaterMessageBuilder(std::string initial_text, bool tampering=false, LLHost tamperedCircuit=LLHost());
 	~LLFloaterMessageBuilder();
 	static void show(std::string initial_text);
+	static void showTamper(std::string initial_text, LLHost tamperedCircuit);
 	static std::list<LLNetListItem*> sNetListItems;
+	bool mTamperedMessage;
+	LLHost mTamperedCircuit;
 	BOOL postBuild();
 	BOOL tick();
 	static BOOL addField(e_message_variable_type var_type, const char* var_name, std::string input, BOOL hex);

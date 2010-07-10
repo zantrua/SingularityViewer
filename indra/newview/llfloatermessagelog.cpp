@@ -59,7 +59,7 @@ void LLMessageLogFilterApply::cancel()
 }
 BOOL LLMessageLogFilterApply::tick()
 {
-	std::deque<LLMessageLogEntry>::iterator end = LLFloaterMessageLog::sMessageLogEntries.end();
+	std::deque<LLSafeMessageEntry>::iterator end = LLFloaterMessageLog::sMessageLogEntries.end();
 	if(mIter == end || !LLFloaterMessageLog::sInstance)
 	{
 		mFinished = TRUE;
@@ -84,8 +84,8 @@ BOOL LLMessageLogFilterApply::tick()
 					LLFloaterMessageLog::sInstance->stopApplyingFilter();
 
 					//we're done messing with the deque, push all queued items to the main deque
-					std::deque<LLMessageLogEntry>::iterator queueIter = mQueuedMessages.begin();
-					std::deque<LLMessageLogEntry>::iterator queueEnd = mQueuedMessages.end();
+					std::deque<LLSafeMessageEntry>::iterator queueIter = mQueuedMessages.begin();
+					std::deque<LLSafeMessageEntry>::iterator queueEnd = mQueuedMessages.end();
 
 					while(queueIter != queueEnd)
 					{
@@ -113,7 +113,7 @@ BOOL LLMessageLogFilterApply::tick()
 ////////////////////////////////
 LLFloaterMessageLog* LLFloaterMessageLog::sInstance;
 std::list<LLNetListItem*> LLFloaterMessageLog::sNetListItems;
-std::deque<LLMessageLogEntry> LLFloaterMessageLog::sMessageLogEntries;
+std::deque<LLSafeMessageEntry> LLFloaterMessageLog::sMessageLogEntries;
 std::vector<LLPrettyDecodedMessage> LLFloaterMessageLog::sFloaterMessageLogItems;
 LLMessageLogFilter LLFloaterMessageLog::sMessageLogFilter = LLMessageLogFilter();
 std::string LLFloaterMessageLog::sMessageLogFilterString("!StartPingCheck !CompletePingCheck !PacketAck !SimulatorViewerTimeMessage !SimStats !AgentUpdate !AgentAnimation !AvatarAnimation !ViewerEffect !CoarseLocationUpdate !LayerData !CameraConstraint !ObjectUpdateCached !RequestMultipleObjects !ObjectUpdate !ObjectUpdateCompressed !ImprovedTerseObjectUpdate !KillObject !ImagePacket !SendXferPacket !ConfirmXferPacket !TransferPacket !SoundTrigger !AttachedSound !PreloadSound");
@@ -334,7 +334,7 @@ void LLFloaterMessageLog::setNetInfoMode(ENetInfoMode mode)
 	childSetEnabled("send_to_message_builder_btn", mNetInfoMode == NI_LOG);
 }
 // static
-void LLFloaterMessageLog::onLog(LLMessageLogEntry entry)
+void LLFloaterMessageLog::onLog(LLSafeMessageEntry entry)
 {
 	//don't mess with the queue while a filter's being applied, or face invalid iterators
 	if(!sBusyApplyingFilter)

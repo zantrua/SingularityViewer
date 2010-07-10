@@ -9,7 +9,7 @@
 #include "lltemplatemessagereader.h"
 #include "lltemplatemessagebuilder.h"
 
-LLMessageLogEntry::LLMessageLogEntry(EType type, LLHost from_host, LLHost to_host, U8* data, S32 data_size)
+LLSafeMessageEntry::LLSafeMessageEntry(EType type, LLHost from_host, LLHost to_host, U8* data, S32 data_size)
 :	mType(type),
 	mFromHost(from_host),
 	mToHost(to_host),
@@ -21,7 +21,7 @@ LLMessageLogEntry::LLMessageLogEntry(EType type, LLHost from_host, LLHost to_hos
 		memcpy(&(mData[0]), data, data_size);
 	}
 }
-LLMessageLogEntry::LLMessageLogEntry(EType type, LLHost from_host, LLHost to_host, std::vector<U8> data, S32 data_size)
+LLSafeMessageEntry::LLSafeMessageEntry(EType type, LLHost from_host, LLHost to_host, std::vector<U8> data, S32 data_size)
 :	mType(type),
 	mFromHost(from_host),
 	mToHost(to_host),
@@ -29,25 +29,63 @@ LLMessageLogEntry::LLMessageLogEntry(EType type, LLHost from_host, LLHost to_hos
 	mData(data)
 {
 }
-LLMessageLogEntry::~LLMessageLogEntry()
+LLSafeMessageEntry::~LLSafeMessageEntry()
 {
 }
+std::string LLSafeMessageEntry::getTemplateName()
+{
+	LLTemplateMessageReader tempTemplateMessageReader(gMessageSystem->mMessageNumbers);
+	if(mType == TEMPLATE)
+	{
+		S32 decode_len = mDataSize;
+		std::vector<U8> DecodeBuffer(MAX_PACKET_LEN,0);
+		memcpy(&(DecodeBuffer[0]),&(mData[0]),decode_len);
+		U8* decodep = &(DecodeBuffer[0]);
+		gMessageSystem->zeroCodeExpand(&decodep, &decode_len);
+		if(decode_len < 7)
+			return (std::string("[INVALID]"));
+		else
+		{
+			tempTemplateMessageReader.clearMessage();
+			if(!tempTemplateMessageReader.validateMessage(decodep, decode_len, mFromHost, TRUE))
+				return (std::string("[INVALID]"));
+			else
+			{
+				if(!tempTemplateMessageReader.decodeData(decodep, mFromHost, TRUE))
+					return (std::string("[INVALID]"));
+				else
+				{
+					LLMessageTemplate* messageTemplate = tempTemplateMessageReader.getTemplate();
+					return std::string(messageTemplate->mName);
+				}
+			}
+		}
+	} else {
+		//no CAPS support yet :(
+		return std::string("[UNSUPPORTED]");
+	}
+}
+BOOL LLSafeMessageEntry::isOutgoing()
+{
+	return mFromHost == LLHost(16777343, gMessageSystem->getListenPort());
+}
+
 U32 LLMessageLog::sMaxSize = 4096; // testzone fixme todo boom
-std::deque<LLMessageLogEntry> LLMessageLog::sDeque;
-void (*(LLMessageLog::sCallback))(LLMessageLogEntry);
+std::deque<LLSafeMessageEntry> LLMessageLog::sDeque;
+void (*(LLMessageLog::sCallback))(LLSafeMessageEntry);
 void LLMessageLog::setMaxSize(U32 size)
 {
 	sMaxSize = size;
 	while(sDeque.size() > sMaxSize)
 		sDeque.pop_front();
 }
-void LLMessageLog::setCallback(void (*callback)(LLMessageLogEntry))
+void LLMessageLog::setCallback(void (*callback)(LLSafeMessageEntry))
 {
 	sCallback = callback;
 }
 void LLMessageLog::log(LLHost from_host, LLHost to_host, U8* data, S32 data_size)
 {
-	LLMessageLogEntry entry = LLMessageLogEntry(LLMessageLogEntry::TEMPLATE, from_host, to_host, data, data_size);
+	LLSafeMessageEntry entry = LLSafeMessageEntry(LLSafeMessageEntry::TEMPLATE, from_host, to_host, data, data_size);
 	if(!entry.mDataSize || !entry.mData.size()) return;
 	if(sCallback) sCallback(entry);
 	if(!sMaxSize) return;
@@ -55,7 +93,7 @@ void LLMessageLog::log(LLHost from_host, LLHost to_host, U8* data, S32 data_size
 	if(sDeque.size() > sMaxSize)
 		sDeque.pop_front();
 }
-std::deque<LLMessageLogEntry> LLMessageLog::getDeque()
+std::deque<LLSafeMessageEntry> LLMessageLog::getDeque()
 {
 	return sDeque;
 }
@@ -64,10 +102,9 @@ std::deque<LLMessageLogEntry> LLMessageLog::getDeque()
 //Pretty Message Decoding//
 ///////////////////////////
 
-#define MAX_PACKET_LEN (0x2000)
 LLTemplateMessageReader* LLPrettyDecodedMessage::sTemplateMessageReader = NULL;
-LLPrettyDecodedMessage::LLPrettyDecodedMessage(LLMessageLogEntry entry)
-:	LLMessageLogEntry(entry.mType, entry.mFromHost, entry.mToHost, entry.mData, entry.mDataSize)
+LLPrettyDecodedMessage::LLPrettyDecodedMessage(LLSafeMessageEntry entry)
+:	LLSafeMessageEntry(entry.mType, entry.mFromHost, entry.mToHost, entry.mData, entry.mDataSize)
 {
 	if(!sTemplateMessageReader)
 	{
@@ -168,10 +205,6 @@ LLPrettyDecodedMessage::LLPrettyDecodedMessage(LLMessageLogEntry entry)
 }
 LLPrettyDecodedMessage::~LLPrettyDecodedMessage()
 {
-}
-BOOL LLPrettyDecodedMessage::isOutgoing()
-{
-	return mFromHost == LLHost(16777343, gMessageSystem->getListenPort());
 }
 std::string LLPrettyDecodedMessage::getFull(BOOL show_header)
 {

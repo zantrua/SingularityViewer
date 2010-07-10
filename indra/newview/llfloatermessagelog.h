@@ -22,8 +22,8 @@ public:
 	S32 mProgress;
 	BOOL mFinished;
 private:
-	std::deque<LLMessageLogEntry> mQueuedMessages;
-	std::deque<LLMessageLogEntry>::iterator mIter;
+	std::deque<LLSafeMessageEntry> mQueuedMessages;
+	std::deque<LLSafeMessageEntry>::iterator mIter;
 };
 class LLFloaterMessageLog : public LLFloater, public LLEventTimer
 {
@@ -39,7 +39,7 @@ public:
 	void refreshNetInfo(BOOL force);
 	enum ENetInfoMode { NI_NET, NI_LOG };
 	void setNetInfoMode(ENetInfoMode mode);
-	static void onLog(LLMessageLogEntry entry);
+	static void onLog(LLSafeMessageEntry entry);
 	static void conditionalLog(LLPrettyDecodedMessage item);
 	static void onCommitNetList(LLUICtrl* ctrl, void* user_data);
 	static void onCommitMessageLog(LLUICtrl* ctrl, void* user_data);
@@ -56,7 +56,7 @@ public:
 	static void onClickClearLog(void* user_data);
 	static LLFloaterMessageLog* sInstance;
 	static std::list<LLNetListItem*> sNetListItems;
-	static std::deque<LLMessageLogEntry> sMessageLogEntries;
+	static std::deque<LLSafeMessageEntry> sMessageLogEntries;
 	static std::vector<LLPrettyDecodedMessage> sFloaterMessageLogItems;
 	static LLMessageLogFilter sMessageLogFilter;
 	static std::string sMessageLogFilterString;

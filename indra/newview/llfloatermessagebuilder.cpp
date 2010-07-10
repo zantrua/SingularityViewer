@@ -32,11 +32,13 @@ LLNetListItem::LLNetListItem(LLUUID id)
 ////////////////////////////////
 std::list<LLNetListItem*> LLFloaterMessageBuilder::sNetListItems;
 
-LLFloaterMessageBuilder::LLFloaterMessageBuilder(std::string initial_text)
+LLFloaterMessageBuilder::LLFloaterMessageBuilder(std::string initial_text, bool tampering, LLHost tamperedCircuit)
 :	LLFloater(),
 	LLEventTimer(1.0f),
 	mNetInfoMode(NI_NET),
-	mInitialText(initial_text)
+	mInitialText(initial_text),
+	mTamperedMessage(tampering),
+	mTamperedCircuit(tamperedCircuit)
 {
 	LLUICtrlFactory::getInstance()->buildFloater(this, "floater_message_builder.xml");
 }
@@ -47,6 +49,11 @@ void LLFloaterMessageBuilder::show(std::string initial_text)
 {
 	(new LLFloaterMessageBuilder(initial_text))->open();
 }
+void LLFloaterMessageBuilder::showTamper(std::string initial_text, LLHost tamperedCircuit)
+{
+	(new LLFloaterMessageBuilder(initial_text, true, tamperedCircuit))->open();
+}
+
 BOOL LLFloaterMessageBuilder::tick()
 {
 	refreshNetList();
@@ -924,7 +931,7 @@ void LLFloaterMessageBuilder::onClickSend(void* user_data)
 	LLScrollListItem* selected_itemp = scrollp->getFirstSelected();
 
 	//if a specific circuit is selected, send it to that, otherwise send it to the current sim
-	if(selected_itemp)
+	if(selected_itemp && !floaterp->mTamperedMessage)
 	{
 		LLNetListItem* itemp = findNetListItem(selected_itemp->getUUID());
 		LLScrollListText* textColumn = (LLScrollListText*)selected_itemp->getColumn(1);
@@ -949,14 +956,20 @@ void LLFloaterMessageBuilder::onClickSend(void* user_data)
 	} else {
 		if(outgoing)
 		{
-			gMessageSystem->sendMessage(gAgent.getRegionHost());
+			if(floaterp->mTamperedMessage)
+				gMessageSystem->sendMessage(floaterp->mTamperedCircuit);
+			else
+				gMessageSystem->sendMessage(gAgent.getRegionHost());
 		} else {
 			U8 builtMessageBuffer[MAX_BUFFER_SIZE];
 
 			S32 message_size = gMessageSystem->mTemplateMessageBuilder->buildMessage(builtMessageBuffer, MAX_BUFFER_SIZE, 0);
 			gMessageSystem->clearMessage();
-			gMessageSystem->checkMessages(0, true, builtMessageBuffer, gAgent.getRegionHost(), message_size);
 
+			if(floaterp->mTamperedMessage)
+				gMessageSystem->checkMessages(0, true, builtMessageBuffer, floaterp->mTamperedCircuit, message_size);
+			else
+				gMessageSystem->checkMessages(0, true, builtMessageBuffer, gAgent.getRegionHost(), message_size);
 		}
 	}
 }
