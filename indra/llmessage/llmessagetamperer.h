@@ -22,7 +22,7 @@ public:
 	static bool busyTampering;
 	static bool sendingTampered;
 
-	static bool isTampered(std::string messageType, bool inbound);
+	static bool isTampered(std::string messageType, bool outbound);
 	static bool isAnythingTampered();
 	static void tamper(LLHost from_host, LLHost to_host, U8* data, S32 data_size);
 	static void setCallback(void (*callback)(std::string, LLHost));

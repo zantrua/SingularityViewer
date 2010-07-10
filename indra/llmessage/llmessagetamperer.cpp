@@ -22,18 +22,18 @@ bool LLMessageTamperer::busyTampering = false;
 bool LLMessageTamperer::sendingTampered = false;
 
 //static
-bool LLMessageTamperer::isTampered(std::string messageType, bool inbound)
+bool LLMessageTamperer::isTampered(std::string messageType, bool outbound)
 {
 	if(tamperedTypes[messageType] == MessageDirection::NONE)
 		return false;
 
-	if(inbound)
+	if(outbound)
 	{
-		return (tamperedTypes[messageType] & MessageDirection::INBOUND);
+		return (tamperedTypes[messageType] & MessageDirection::OUTBOUND);
 	}
 	else
 	{
-		return (tamperedTypes[messageType] & MessageDirection::OUTBOUND);
+		return (tamperedTypes[messageType] & MessageDirection::INBOUND);
 	}
 }
 
@@ -65,6 +65,7 @@ void LLMessageTamperer::setCallback(void (*callback)(std::string, LLHost))
 //static
 void LLMessageTamperer::tamper(LLHost from_host, LLHost to_host, U8* data, S32 data_size)
 {
+	//well we're not tampering with anything or we don't have a callback set, screw off.
 	if(!tamperingAny || !sCallback) return;
 
 	LLSafeMessageEntry entry = LLSafeMessageEntry(LLSafeMessageEntry::TEMPLATE, from_host, to_host, data, data_size);
@@ -74,12 +75,9 @@ void LLMessageTamperer::tamper(LLHost from_host, LLHost to_host, U8* data, S32 d
 	std::string templateName = entry.getTemplateName();
 
 	if(templateName == "[INVALID]" || templateName == "[UNSUPPORTED]") return;
-	if(tamperedTypes[templateName] == MessageDirection::NONE) return;
 
-	//message is outgoing, not tampering outgoing
-	if(entry.isOutgoing() && !(tamperedTypes[templateName] & MessageDirection::OUTBOUND)) return;
-	//message is incoming, not tampering incoming
-	if(!entry.isOutgoing() && !(tamperedTypes[templateName] & MessageDirection::INBOUND)) return;
+	//return if we're not tampering with this type
+	if(!isTampered(templateName, entry.isOutgoing())) return;
 
 	LLPrettyDecodedMessage prettyEntry(entry);
 
