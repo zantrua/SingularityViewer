@@ -52,6 +52,8 @@ extern void request_sound(const LLUUID &sound_guid);
 
 LLAudioEngine* gAudiop = NULL;
 
+int gSoundHistoryPruneCounter = 0;
+
 
 //
 // LLAudioEngine implementation
@@ -1820,7 +1822,7 @@ void logSoundPlay(LLUUID id, LLAudioSource* audio_source, LLVector3d position, S
 	gSoundHistory[id] = item;
 }
 
-static void logSoundStop(LLUUID id)
+void logSoundStop(LLUUID id)
 {
 	if(gSoundHistory.find(id) != gSoundHistory.end())
 	{
@@ -1831,7 +1833,7 @@ static void logSoundStop(LLUUID id)
 	}
 }
 
-static void pruneSoundLog()
+void pruneSoundLog()
 {
 	if(++gSoundHistoryPruneCounter >= 64)
 	{
