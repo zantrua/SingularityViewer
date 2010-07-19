@@ -68,10 +68,10 @@ private:
 		return false;
 	}
 
-	// The history channel gets all notifications except those that have been cancelled
+	// The history channel gets all notifications except those that have been cancelled or LSL notifications
 	static bool historyFilter(LLNotificationPtr pNotification)
 	{
-		return !pNotification->isCancelled();
+		return !pNotification->isCancelled() && pNotification->getType() != "notify";
 	}
 
 	void savePersistentNotifications()
