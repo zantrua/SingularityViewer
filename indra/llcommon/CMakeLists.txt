@@ -37,6 +37,7 @@ set(llcommon_SOURCE_FILES
     llfile.cpp
     llfindlocale.cpp
     llfixedbuffer.cpp
+    llfoldertype.cpp
     llformat.cpp
     llframetimer.cpp
     llheartbeat.cpp
@@ -129,6 +130,7 @@ set(llcommon_HEADER_FILES
     llfile.h
     llfindlocale.h
     llfixedbuffer.h
+    llfoldertype.h
     llformat.h
     llframetimer.h
     llhash.h

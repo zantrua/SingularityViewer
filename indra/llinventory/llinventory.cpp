@@ -31,10 +31,10 @@
  */
 
 #include "linden_common.h"
-
 #include "llinventory.h"
 
 #include "lldbstrings.h"
+#include "llinventorydefines.h"
 #include "llxorcipher.h"
 #include "llsd.h"
 #include "message.h"
@@ -1115,7 +1115,7 @@ bool LLInventoryItem::fromLLSD(const LLSD& sd)
 	{
 		if (sd[w].isString())
 		{
-			mType = LLAssetType::lookup(sd[w].asString().c_str());
+			mType = LLAssetType::lookup(sd[w].asString());
 		}
 		else if (sd[w].isInteger())
 		{
@@ -1415,26 +1415,13 @@ void LLInventoryItem::unpackBinaryBucket(U8* bin_bucket, S32 bin_bucket_size)
 	setCreationDate(now);
 }
 
-// returns TRUE if a should appear before b
-BOOL item_dictionary_sort( LLInventoryItem* a, LLInventoryItem* b )
-{
-	return (LLStringUtil::compareDict( a->getName().c_str(), b->getName().c_str() ) < 0);
-}
-
-// returns TRUE if a should appear before b
-BOOL item_date_sort( LLInventoryItem* a, LLInventoryItem* b )
-{
-	return a->getCreationDate() < b->getCreationDate();
-}
-
-
 ///----------------------------------------------------------------------------
 /// Class LLInventoryCategory
 ///----------------------------------------------------------------------------
 
 LLInventoryCategory::LLInventoryCategory(const LLUUID& uuid,
 										 const LLUUID& parent_uuid,
-										 LLAssetType::EType preferred_type,
+										 LLFolderType::EType preferred_type,
 										 const std::string& name) :
 	LLInventoryObject(uuid, parent_uuid, LLAssetType::AT_CATEGORY, name),
 	mPreferredType(preferred_type)
@@ -1442,7 +1429,7 @@ LLInventoryCategory::LLInventoryCategory(const LLUUID& uuid,
 }
 
 LLInventoryCategory::LLInventoryCategory() :
-	mPreferredType(LLAssetType::AT_NONE)
+	mPreferredType(LLFolderType::FT_NONE)
 {
 	mType = LLAssetType::AT_CATEGORY;
 }
@@ -1464,12 +1451,12 @@ void LLInventoryCategory::copyCategory(const LLInventoryCategory* other)
 	mPreferredType = other->mPreferredType;
 }
 
-LLAssetType::EType LLInventoryCategory::getPreferredType() const
+LLFolderType::EType LLInventoryCategory::getPreferredType() const
 {
 	return mPreferredType;
 }
 
-void LLInventoryCategory::setPreferredType(LLAssetType::EType type)
+void LLInventoryCategory::setPreferredType(LLFolderType::EType type)
 {
 	mPreferredType = type;
 }
@@ -1515,13 +1502,13 @@ bool LLInventoryCategory::fromLLSD(const LLSD& sd)
     if (sd.has(w))
     {
         S8 type = (U8)sd[w].asInteger();
-        mPreferredType = static_cast<LLAssetType::EType>(type);
+        mPreferredType = static_cast<LLFolderType::EType>(type);
     }
 	w = INV_ASSET_TYPE_LABEL_WS;
 	if (sd.has(w))
 	{
 		S8 type = (U8)sd[w].asInteger();
-        mPreferredType = static_cast<LLAssetType::EType>(type);
+        mPreferredType = static_cast<LLFolderType::EType>(type);
 	}
 
     w = INV_NAME_LABEL;
@@ -1543,7 +1530,7 @@ void LLInventoryCategory::unpackMessage(LLMessageSystem* msg,
 	msg->getUUIDFast(block, _PREHASH_ParentID, mParentUUID, block_num);
 	S8 type;
 	msg->getS8Fast(block, _PREHASH_Type, type, block_num);
-	mPreferredType = static_cast<LLAssetType::EType>(type);
+	mPreferredType = static_cast<LLFolderType::EType>(type);
 	msg->getStringFast(block, _PREHASH_Name, mName, block_num);
 	LLStringUtil::replaceNonstandardASCII(mName, ' ');
 }
@@ -1592,7 +1579,7 @@ BOOL LLInventoryCategory::importFile(LLFILE* fp)
 		}
 		else if(0 == strcmp("pref_type", keyword))
 		{
-			mPreferredType = LLAssetType::lookup(valuestr);
+			mPreferredType = LLFolderType::lookup(valuestr);
 		}
 		else if(0 == strcmp("name", keyword))
 		{
@@ -1624,7 +1611,7 @@ BOOL LLInventoryCategory::exportFile(LLFILE* fp, BOOL) const
 	mParentUUID.toString(uuid_str);
 	fprintf(fp, "\t\tparent_id\t%s\n", uuid_str.c_str());
 	fprintf(fp, "\t\ttype\t%s\n", LLAssetType::lookup(mType));
-	fprintf(fp, "\t\tpref_type\t%s\n", LLAssetType::lookup(mPreferredType));
+	fprintf(fp, "\t\tpref_type\t%s\n", LLFolderType::lookup(mPreferredType).c_str());
 	fprintf(fp, "\t\tname\t%s|\n", mName.c_str());
 	fprintf(fp,"\t}\n");
 	return TRUE;
@@ -1671,7 +1658,7 @@ BOOL LLInventoryCategory::importLegacyStream(std::istream& input_stream)
 		}
 		else if(0 == strcmp("pref_type", keyword))
 		{
-			mPreferredType = LLAssetType::lookup(valuestr);
+			mPreferredType = LLFolderType::lookup(valuestr);
 		}
 		else if(0 == strcmp("name", keyword))
 		{
@@ -1703,7 +1690,7 @@ BOOL LLInventoryCategory::exportLegacyStream(std::ostream& output_stream, BOOL) 
 	mParentUUID.toString(uuid_str);
 	output_stream << "\t\tparent_id\t" << uuid_str << "\n";
 	output_stream << "\t\ttype\t" << LLAssetType::lookup(mType) << "\n";
-	output_stream << "\t\tpref_type\t" << LLAssetType::lookup(mPreferredType) << "\n";
+	output_stream << "\t\tpref_type\t" << LLFolderType::lookup(mPreferredType) << "\n";
 	output_stream << "\t\tname\t" << mName.c_str() << "|\n";
 	output_stream << "\t}\n";
 	return TRUE;
@@ -1783,10 +1770,10 @@ LLSD ll_create_sd_from_inventory_category(LLPointer<LLInventoryCategory> cat)
 	rv[INV_PARENT_ID_LABEL] = cat->getParentUUID();
 	rv[INV_NAME_LABEL] = cat->getName();
 	rv[INV_ASSET_TYPE_LABEL] = LLAssetType::lookup(cat->getType());
-	if(LLAssetType::AT_NONE != cat->getPreferredType())
+	if(LLFolderType::lookupIsProtectedType(cat->getPreferredType()))
 	{
 		rv[INV_PREFERRED_TYPE_LABEL] =
-			LLAssetType::lookup(cat->getPreferredType());
+			LLFolderType::lookup(cat->getPreferredType()).c_str();
 	}
 	return rv;
 }
@@ -1800,7 +1787,7 @@ LLPointer<LLInventoryCategory> ll_create_category_from_sd(const LLSD& sd_cat)
 	rv->setType(
 		LLAssetType::lookup(sd_cat[INV_ASSET_TYPE_LABEL].asString()));
 	rv->setPreferredType(
-		LLAssetType::lookup(
+			LLFolderType::lookup(
 			sd_cat[INV_PREFERRED_TYPE_LABEL].asString()));
 	return rv;
 }

@@ -6,6 +6,7 @@
 #include "llassetconverter.h"
 #include "llviewertexturelist.h"
 #include "llvorbisencode.h"
+#include "llwearable.h"
 #include "llbvhloader.h"
 // static
 extern std::string STATUS[];
@@ -144,18 +145,22 @@ LLAssetType::EType LLAssetConverter::convert(std::string src_filename, std::stri
 			return LLAssetType::AT_NONE;
 		}
 	}
-	else if(exten == "eyes" || exten == "gloves" || exten == "hair" || exten == "jacket" || exten == "pants" || exten == "shape" || exten == "shirt" || exten == "shoes" || exten == "skin" || exten == "skirt" || exten == "socks" || exten == "underpants" || exten == "undershirt" || exten == "bodypart" || exten == "clothing" || exten == "physics")
-	{
-		asset_type = LLAssetType::AT_CLOTHING;
-		if(!copyFile(src_filename, filename))
-		{
-			return LLAssetType::AT_NONE;
-		}
-	}
 	else
 	{
-		llwarns << "Unhandled extension" << llendl;
-		return LLAssetType::AT_NONE;
+		EWearableType wear_type = LLWearable::typeNameToType(exten);
+		if(wear_type != WT_NONE)
+		{
+			asset_type = LLWearable::typeToAssetType(wear_type);
+			if(!copyFile(src_filename, filename))
+			{
+				return LLAssetType::AT_NONE;
+			}
+		}
+		else
+		{
+			llwarns << "Unhandled extension" << llendl;
+			return LLAssetType::AT_NONE;
+		}
 	}
 	return asset_type;
 }

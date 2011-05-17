@@ -6860,7 +6860,7 @@ void LLAgent::saveWearableAs(
 	if (save_in_lost_and_found)
 	{
 		category_id = gInventory.findCategoryUUIDForType(
-			LLAssetType::AT_LOST_AND_FOUND);
+			LLFolderType::FT_LOST_AND_FOUND);
 	}
 	else
 	{
@@ -6892,7 +6892,7 @@ void LLAgent::saveWearableAs(
 			new_wearable->setPermissions(item->getPermissions());
 			if (save_in_lost_and_found)
 			{
-				category_id = gInventory.findCategoryUUIDForType(LLAssetType::AT_LOST_AND_FOUND);
+				category_id = gInventory.findCategoryUUIDForType(LLFolderType::FT_LOST_AND_FOUND);
 			}
 			else
 			{
@@ -7242,7 +7242,7 @@ void LLAgent::recoverMissingWearable( EWearableType type )
 	// (We used to overwrite the "not found" one, but that could potentially
 	// destory content.) JC
 	LLUUID lost_and_found_id = 
-		gInventory.findCategoryUUIDForType(LLAssetType::AT_LOST_AND_FOUND);
+		gInventory.findCategoryUUIDForType(LLFolderType::FT_LOST_AND_FOUND);
 	LLPointer<LLInventoryCallback> cb =
 		new addWearableToAgentInventoryCallback(
 			LLPointer<LLRefCount>(NULL),
@@ -7373,8 +7373,8 @@ void LLAgent::makeNewOutfit(
 	BOOL fUseOutfits = gSavedSettings.getBOOL("UseOutfitFolders") &&
 					   gHippoGridManager->getConnectedGrid()->supportsInvLinks();
 
-	LLAssetType::EType typeDest = (fUseOutfits) ? LLAssetType::AT_MY_OUTFITS : LLAssetType::AT_CLOTHING;
-	LLAssetType::EType typeFolder = (fUseOutfits) ? LLAssetType::AT_OUTFIT : LLAssetType::AT_NONE;
+	LLFolderType::EType typeDest = (fUseOutfits) ? LLFolderType::FT_MY_OUTFITS : LLFolderType::FT_CLOTHING;
+	LLFolderType::EType typeFolder = (fUseOutfits) ? LLFolderType::FT_OUTFIT : LLFolderType::FT_NONE;
 
 	// First, make a folder for the outfit.
 	LLUUID folder_id = gInventory.createNewCategory(gInventory.findCategoryUUIDForType(typeDest), typeFolder, new_folder_name);
