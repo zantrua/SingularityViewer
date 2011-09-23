@@ -249,6 +249,9 @@ public:
 	static BOOL		getEditModeEnabled() { return sEditModeEnabled; }
 	static LLMultiFloater*		getFloaterHost() {return sHostp; }
 
+	LLButton*		mButtons[BUTTON_COUNT];
+	void			userSetShape(const LLRect& new_rect);
+
 protected:
 
 	virtual void	bringToFront(S32 x, S32 y);
@@ -297,8 +300,7 @@ private:
 	bool			mDragOnLeft;
 
 	BOOL			mButtonsEnabled[BUTTON_COUNT];
-protected:
-	LLButton*		mButtons[BUTTON_COUNT];
+
 private:
 	F32				mButtonScale;
 	BOOL			mAutoFocus;

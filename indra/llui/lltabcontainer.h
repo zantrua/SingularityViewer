@@ -145,6 +145,11 @@ public:
 
 	static LLView* fromXML(LLXMLNodePtr node, LLView *parent, LLUICtrlFactory *factory);
 
+	void userSetShape(const LLRect& new_rect)
+	{
+		reshape(new_rect.getWidth(), new_rect.getHeight());
+	}
+
 private:
 	// Structure used to map tab buttons to and from tab panels
 	struct LLTabTuple

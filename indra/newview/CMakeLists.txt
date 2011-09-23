@@ -98,6 +98,7 @@ set(viewer_SOURCE_FILES
     hipporestrequest.cpp
     hippopanelgrids.cpp
     jcfloaterareasearch.cpp
+	jclslpreproc.cpp
     chatbar_as_cmdline.cpp
     qtoolalign.cpp
     llaccountingcostmanager.cpp
@@ -575,6 +576,7 @@ set(viewer_HEADER_FILES
     hipporestrequest.h
     hippopanelgrids.h
     jcfloaterareasearch.h
+	jclslpreproc.h
     lggdicdownload.h
     lgghunspell_wrapper.h
     chatbar_as_cmdline.h

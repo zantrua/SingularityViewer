@@ -803,7 +803,7 @@ void init_menus()
 	// TomY TODO convert these two
 	LLMenuGL*menu;
 
-	menu = new LLMenuGL("Singularity");
+	menu = new LLMenuGL("Neon Rain");
 	menu->append(new LLMenuItemCallGL(	"Close All Dialogs", 
 										&handle_close_all_notifications, NULL, NULL, 'D', MASK_CONTROL | MASK_ALT | MASK_SHIFT));
 	menu->appendSeparator();
@@ -813,11 +813,12 @@ void init_menus()
 	menu->appendSeparator();
 	menu->append(new LLMenuItemCallGL( "Animation Override...",
 									&handle_edit_ao, NULL));
-	menu->append(new LLMenuItemCheckGL( "Nimble",
+	//zmod removed
+	/*menu->append(new LLMenuItemCheckGL( "Nimble",
 										&menu_toggle_control,
 										NULL,
 										&menu_check_control,
-										(void*)"Nimble"));
+										(void*)"Nimble"));*/
 	menu->append(new LLMenuItemCheckGL( "ReSit",
 										&menu_toggle_control,
 										NULL,
@@ -1438,6 +1439,9 @@ void init_debug_rendering_menu(LLMenuGL* menu)
 	sub_menu->append(new LLMenuItemCheckGL("BBoxes",	&LLPipeline::toggleRenderDebug, NULL,
 													&LLPipeline::toggleRenderDebugControl,
 													(void*)LLPipeline::RENDER_DEBUG_BBOXES));
+	sub_menu->append(new LLMenuItemCheckGL("AVBBoxes",	&LLPipeline::toggleRenderDebug, NULL,
+													&LLPipeline::toggleRenderDebugControl,
+													(void*)LLPipeline::RENDER_DEBUG_AVATAR_BBOXES));
 	sub_menu->append(new LLMenuItemCheckGL("Points",	&LLPipeline::toggleRenderDebug, NULL,
 													&LLPipeline::toggleRenderDebugControl,
 													(void*)LLPipeline::RENDER_DEBUG_POINTS));

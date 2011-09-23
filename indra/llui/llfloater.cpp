@@ -609,6 +609,11 @@ void LLFloater::reshape(S32 width, S32 height, BOOL called_from_parent)
 	LLPanel::reshape(width, height, called_from_parent);
 }
 
+void LLFloater::userSetShape(const LLRect& new_rect)
+{
+	LLPanel::reshape(new_rect.getWidth(), new_rect.getHeight());
+}
+
 void LLFloater::releaseFocus()
 {
 	if( gFocusMgr.childIsTopCtrl( this ) )

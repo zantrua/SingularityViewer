@@ -621,6 +621,11 @@ public:
 	void			setSorted(BOOL sorted) { mSorted = sorted; }
 	void			dirtyColumns(); // some operation has potentially affected column layout or ordering
 
+	void userSetShape(const LLRect& new_rect)
+	{
+		reshape(new_rect.getWidth(), new_rect.getHeight());
+	}
+
 protected:
 	// "Full" interface: use this when you're creating a list that has one or more of the following:
 	// * contains icons

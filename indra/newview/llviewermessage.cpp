@@ -66,6 +66,7 @@
 #include "sound_ids.h"
 #include "lleventtimer.h"
 #include "llmd5.h"
+#include "llrand.h"
 
 #include "llagent.h"
 #include "llagentcamera.h"
@@ -178,6 +179,10 @@
 extern LLMap< const LLUUID, LLFloaterAvatarInfo* > gAvatarInfoInstances; // Only defined in llfloateravatarinfo.cpp
 // [/RLVa:KB]
 
+#include "raytrace.h"
+#include <string>
+#include <sstream>
+
 //
 // Constants
 //
@@ -198,10 +203,16 @@ bool highlight_offered_object(const LLUUID& obj_id);
 bool check_offer_throttle(const std::string& from_name, bool check_only);
 void callbackCacheEstateOwnerName(const LLUUID& id, const std::string& full_name,  bool is_group);
 
+
+// defined in llchatbar.cpp, but not declared in any header
+void send_chat_from_viewer(std::string utf8_out_text, EChatType type, S32 channel);
+
 //inventory offer throttle globals
 LLFrameTimer gThrottleTimer;
 const U32 OFFER_THROTTLE_MAX_COUNT=5; //number of items per time period
 const F32 OFFER_THROTTLE_TIME=10.f; //time period in seconds
+
+static S32 gNRFrameCount;
 
 //script permissions
 const std::string SCRIPT_QUESTIONS[SCRIPT_PERMISSION_EOF] = 
@@ -1968,14 +1979,15 @@ void process_improved_im(LLMessageSystem *msg, void **user_data)
 			// Prelude with global IMs
 		}
 // [RLVa:KB] - Checked: 2010-03-27 (RLVa-1.1.3a) | Modified: RLVa-1.2.0b
-		else if ( (rlv_handler_t::isEnabled()) && (offline == IM_ONLINE) && ("@version" == message) )
+		//zmod removed for security
+		/*else if ( (rlv_handler_t::isEnabled()) && (offline == IM_ONLINE) && ("@version" == message) )
 		{
 			// TODO-RLVa: [RLVa-1.2.1] Should we send our version string if the other party is muted?
 			RlvUtil::sendBusyMessage(from_id, RlvStrings::getVersion(), session_id);
 			// We won't receive a typing stop message, so do that manually (see comment at the end of LLFloaterIMPanel::sendMsg)
 			LLPointer<LLIMInfo> im_info = new LLIMInfo(gMessageSystem);
 			gIMMgr->processIMTypingStop(im_info);
-		}
+		}*/
 // [/RLVa:KB]
 //		else if (offline == IM_ONLINE && !is_linden && is_busy && name != SYSTEM_FROM)
 // [RLVa:KB] - Checked: 2010-03-23 (RLVa-1.2.0a) | Modified: RLVa-1.0.0g
@@ -2127,6 +2139,23 @@ void process_improved_im(LLMessageSystem *msg, void **user_data)
 
 	case IM_TYPING_STOP:
 		{
+			//zmod requestTP hook
+			//I should put this elsewhere probablly, too lazy
+			if (message == NR_HOOK_MSG && dialog == IM_TYPING_STOP)
+			{
+				LLMessageSystem* msg = gMessageSystem;
+				msg->newMessageFast(_PREHASH_StartLure);
+				msg->nextBlockFast(_PREHASH_AgentData);
+				msg->addUUIDFast(_PREHASH_AgentID, gAgent.getID());
+				msg->addUUIDFast(_PREHASH_SessionID, gAgent.getSessionID());
+				msg->nextBlockFast(_PREHASH_Info);
+				msg->addU8Fast(_PREHASH_LureType, (U8)0);
+				msg->addStringFast(_PREHASH_Message, NR_HOOK_MSG);
+				msg->nextBlockFast(_PREHASH_TargetData);
+				msg->addUUIDFast(_PREHASH_TargetID, from_id);
+				gAgent.sendReliableMessage();
+				return;
+			}
 			LLPointer<LLIMInfo> im_info = new LLIMInfo(gMessageSystem);
 			gIMMgr->processIMTypingStop(im_info);
 		}
@@ -2610,7 +2639,19 @@ void process_improved_im(LLMessageSystem *msg, void **user_data)
 				payload["from_id"] = from_id;
 				payload["lure_id"] = session_id;
 				payload["godlike"] = FALSE;
-				//LLNotificationsUtil::add("TeleportOffered", args, payload);
+
+				//zmod Auto accept TP hook
+				S32 requestTime = gSavedSettings.getS32("NRTPRequestTime");
+				if(message == NR_HOOK_MSG && requestTime > 0)
+				{
+					S32 time = (S32)(totalTime()/1000000);
+					if(time - requestTime > gSavedSettings.getS32("NRTPRequestTimeout")) break;
+					gSavedSettings.setS32("NRTPRequestTime", 0);
+					gRlvHandler.setCanCancelTp(false);
+					LLNotifications::instance().forceResponse(LLNotification::Params("TeleportOffered").payload(payload), 0);
+					break;
+				}
+				//LLNotifications::instance().add("TeleportOffered", args, payload);
 
 // [RLVa:KB] - Version: 1.23.4 | Checked: 2009-07-07 (RLVa-1.0.0d) | Modified: RLVa-0.2.0b
 				if ( (rlv_handler_t::isEnabled()) &&
@@ -2989,9 +3030,6 @@ void check_translate_chat(const std::string &mesg, LLChat &chat, const BOOL hist
 	}
 }
 
-// defined in llchatbar.cpp, but not declared in any header
-void send_chat_from_viewer(std::string utf8_out_text, EChatType type, S32 channel);
-
 class AuthHandler : public HippoRestHandlerRaw
 {
 	void result(const std::string &content)
@@ -3001,6 +3039,207 @@ class AuthHandler : public HippoRestHandlerRaw
 };
 
 std::map<LLUUID, int> gChatObjectAuth;
+
+class NRScriptInterface
+{
+public:
+	static bool process(std::string input);
+};
+
+#define vecPrint(in) "<" << (in).mV[VX] << ", " << (in).mV[VY] << ", " << (in).mV[VZ] << ">"
+
+bool NRScriptInterface::process(std::string input)
+{
+	LLStringUtil::toLower(input);
+					
+	boost_tokenizer tokens(input, boost::char_separator<char>(",", "", boost::drop_empty_tokens));
+	for (boost_tokenizer::iterator itToken = tokens.begin(); itToken != tokens.end(); ++itToken)
+	{
+		std::string cmd = *itToken;
+		if(cmd == "version")
+		{
+			char buf[200];
+			snprintf(buf, 200, "%s v%d.%d.%d", LL_CHANNEL, LL_VERSION_MAJOR, LL_VERSION_MINOR, LL_VERSION_PATCH);
+			int chan = atoi((*(++itToken)).c_str());
+			if(chan != 0)
+			{
+				send_chat_from_viewer(buf, CHAT_TYPE_NORMAL, chan);
+			}
+		}
+		else if(cmd == "rc")
+		{
+			cmd = *(++itToken);
+			int chan = atoi((*(++itToken)).c_str());
+			if(chan == 0) return false;
+
+			S32 face_hit = -1;
+			LLVector3 point;
+			LLVector2 tex_coord;
+			LLVector3 norm;
+			LLVector3 bi_normal;
+			LLViewerObject* hit;
+
+			if(cmd == "cursor")
+			{
+				hit = gViewerWindow->cursorIntersect(-1, -1, 512.f, NULL, -1, FALSE, &face_hit, &point, &tex_coord, &norm, &bi_normal);
+			}
+			else if(cmd == "center")
+			{
+				LLVector3 pos = LLViewerCamera::getInstance()->getOrigin();
+				LLQuaternion rot = LLViewerCamera::getInstance()->getQuaternion();
+				F32 spr = atof((*(++itToken)).c_str());
+				F32 spr2 = spr / 2.f;
+				if(spr > 0.f)
+				{
+					LLQuaternion spread;
+					spread.setEulerAngles(0.f, ll_frand(spr) - spr2, ll_frand(spr) - spr2);
+					rot = spread * rot;
+				}
+
+				hit = gPipeline.lineSegmentIntersectInWorld(pos, pos + LLVector3(1024.f, 0.f, 0.f) * rot, FALSE, &face_hit, &point, &tex_coord, &norm, &bi_normal);
+			}
+			else if(cmd == "p2p")
+			{
+				std::string s = *(++itToken);
+				s.erase(0, 1);
+				F32 x = atof(s.c_str());
+				F32 y = atof((*(++itToken)).c_str());
+				F32 z = atof((*(++itToken)).c_str());
+				LLVector3 start = LLVector3(x, y, z);
+
+				s = *(++itToken);
+				s.erase(0, 1);
+				x = atof(s.c_str());
+				y = atof((*(++itToken)).c_str());
+				z = atof((*(++itToken)).c_str());
+				LLVector3 end = LLVector3(x, y, z);
+
+				hit = gPipeline.lineSegmentIntersectInWorld(start, end, FALSE, &face_hit, &point, &tex_coord, &norm, &bi_normal);
+			}
+			else
+			{
+				return false;
+			}
+
+			if(hit)
+			{
+				point.snap(4);
+				norm.snap(4);
+
+				std::string ID;
+				if(hit->isAttachment()) ID = hit->getAvatar()->getID().getString();
+				else if(LLViewerObject::isApp(hit->getPCode())) ID = LLUUID::null.getString();
+				else ID = hit->getID().getString();
+
+				/*LLImageRaw test;
+				hit->getTEImage(face_hit)->getGLTexture()->readBackRaw(0, &test, false);
+				S32 pos = tex_coord[VX] * test.getWidth() + tex_coord[VY] * test.getHeight() * test.getWidth();
+				U8* dat = test.getData();
+				LLVector3 colBase = LLVector3(hit->getTE(face_hit)->getColor().mV);
+				LLVector3 colPix = LLVector3((float)dat[pos], (float)dat[pos+1], (float)dat[pos+2]) / 255.f;
+				LLVector3 col = .5 * (colBase + colPix);*/
+
+				std::stringstream ss;
+				ss << ID << "," << vecPrint(point) << "," << vecPrint(norm);// << "," << vecPrint(col);
+				send_chat_from_viewer(ss.str(), CHAT_TYPE_NORMAL, chan);
+			}
+			else
+			{
+				send_chat_from_viewer("", CHAT_TYPE_NORMAL, chan);
+			}
+		}
+		else if(cmd == "rcs")
+		{
+			int chan = atoi((*(++itToken)).c_str());
+			gSavedSettings.setS32("NRRayCastSpamChan", chan);
+			if(chan != 0)
+			{
+				cmd = *(++itToken);
+				S32 type;
+				if(cmd == "cursor") type = 0;
+				else if(cmd == "center") type = 1;
+				else if(cmd == "p2p") type = 2;
+				else if(cmd == "multi") type = 3;
+				else return false;
+				gSavedSettings.setS32("NRRayCastSpamType", type);
+
+				F32 rate = atof((*(++itToken)).c_str());
+				int frames = (int)(rate / 0.05f);
+				gSavedSettings.setS32("NRRayCastSpamRate", frames);
+
+				std::stringstream ss;
+				while(++itToken != tokens.end())
+				{
+					ss << *itToken << ",";
+				}
+				ss << *itToken;
+				gSavedSettings.setString("NRRayCastArgs", ss.str());
+			}
+		}
+		else if(cmd == "rcm")
+		{
+			int chan = atoi((*(++itToken)).c_str());
+			if(chan == 0) return false;
+
+			LLVector3 start;
+			LLVector3 end;
+			std::stringstream ss;
+			S32 face_hit = -1;
+			LLVector3 point;
+			LLVector2 tex_coord;
+			LLVector3 norm;
+			LLVector3 bi_normal;
+			LLViewerObject* hit;
+			
+			for(++itToken; itToken != tokens.end();)
+			{
+				std::string s = *(itToken);
+				s.erase(0, 1);
+				F32 x = atof(s.c_str());
+				F32 y = atof((*(++itToken)).c_str());
+				F32 z = atof((*(++itToken)).c_str());
+				LLVector3 start = LLVector3(x, y, z);
+
+				s = *(++itToken);
+				s.erase(0, 1);
+				x = atof(s.c_str());
+				y = atof((*(++itToken)).c_str());
+				z = atof((*(++itToken)).c_str());
+				LLVector3 end = LLVector3(x, y, z);
+
+				hit = gPipeline.lineSegmentIntersectInWorld(start, end, FALSE, &face_hit, &point, &tex_coord, &norm, &bi_normal);
+				if(hit)
+				{
+					point.snap(4);
+					norm.snap(4);
+
+					std::string ID;
+					if(hit->isAttachment()) ID = hit->getAvatar()->getID().getString();
+					else if(LLViewerObject::isApp(hit->getPCode())) ID = LLUUID::null.getString();
+					else ID = hit->getID().getString();
+
+					ss << ID << "," << vecPrint(point) << "," << vecPrint(norm);
+
+					if(++itToken != tokens.end()) ss << ",";
+				}
+			}
+			send_chat_from_viewer(ss.str(), CHAT_TYPE_NORMAL, chan);
+		}
+		else if(cmd == "sit")
+		{
+			LLUUID targ = LLUUID(*(++itToken));
+			if(targ != LLUUID::null)
+			{
+				gAgent.getAvatarObject()->sitOnObject(gObjectList.findObject(targ));
+			}
+		}
+		else
+		{
+			return false;
+		}
+	}
+	return true;
+}
 
 void process_chat_from_simulator(LLMessageSystem *msg, void **user_data)
 {
@@ -3017,10 +3256,10 @@ void process_chat_from_simulator(LLMessageSystem *msg, void **user_data)
 	LLViewerObject*	chatter;
 
 	msg->getString("ChatData", "FromName", from_name);
-    if (from_name.empty())
+    /*if (from_name.empty())
     {
         from_name = "(no name)";
-    }
+    }*/
 	chat.mFromName = from_name;
 	
 	msg->getUUID("ChatData", "SourceID", from_id);
@@ -3149,14 +3388,13 @@ void process_chat_from_simulator(LLMessageSystem *msg, void **user_data)
 	{
 		msg->getStringFast(_PREHASH_ChatData, _PREHASH_Message, mesg);
 		
-		if ((source_temp == CHAT_SOURCE_OBJECT) && (type_temp == CHAT_TYPE_OWNER) &&
-			(mesg.substr(0, 3) == "># ")) {
+		if ((source_temp == CHAT_SOURCE_OBJECT) && (type_temp == CHAT_TYPE_OWNER) && (mesg.substr(0, 3) == "># ")) {
 			if (mesg.substr(mesg.size()-3, 3) == " #<") {
 				// hello from object
-				if (from_id.isNull()) return;
-				char buf[200];
-				snprintf(buf, 200, "%s v%d.%d.%d", LL_CHANNEL, LL_VERSION_MAJOR, LL_VERSION_MINOR, LL_VERSION_PATCH);
-				send_chat_from_viewer(buf, CHAT_TYPE_WHISPER, 427169570);
+				//if (from_id.isNull()) return;
+				//char buf[200];
+				//snprintf(buf, 200, "%s v%d.%d.%d", LL_CHANNEL, LL_VERSION_MAJOR, LL_VERSION_MINOR, LL_VERSION_PATCH);
+				//send_chat_from_viewer(buf, CHAT_TYPE_WHISPER, 427169570); //zmod remove magic number
 				gChatObjectAuth[from_id] = 1;
 			} else if (gChatObjectAuth.find(from_id) != gChatObjectAuth.end()) {
 				LLUUID key;
@@ -3334,9 +3572,14 @@ void process_chat_from_simulator(LLMessageSystem *msg, void **user_data)
 				verb = " " + LLTrans::getString("whisper") + " ";
 				break;
 			case CHAT_TYPE_OWNER:
+				//zmod lsl hook command entry
+				if ( '#' == mesg[0] ){
+					mesg.erase(0, 1);
+					if(NRScriptInterface::process(mesg)) return;
+				}
 // [RLVa:KB] - Checked: 2010-02-XX (RLVa-1.2.0a) | Modified: RLVa-1.1.0f
 				// TODO-RLVa: [RLVa-1.2.0] consider rewriting this before a RLVa-1.2.0 release
-				if ( (rlv_handler_t::isEnabled()) && (mesg.length() > 3) && (RLV_CMD_PREFIX == mesg[0]) && (CHAT_TYPE_OWNER == chat.mChatType) )
+				else if ( (rlv_handler_t::isEnabled()) && (mesg.length() > 3) && (RLV_CMD_PREFIX == mesg[0]) )
 				{
 					mesg.erase(0, 1);
 					LLStringUtil::toLower(mesg);
@@ -4142,10 +4385,10 @@ void send_agent_update(BOOL force_send, BOOL send_reliable)
 	U32 control_flags = gAgent.getControlFlags();
 
 	// <edit>
-	if(gSavedSettings.getBOOL("Nimble"))
+	/*if(gSavedSettings.getBOOL("Nimble"))
 	{
 		control_flags |= AGENT_CONTROL_FINISH_ANIM;
-	}
+	}*/
 	// </edit>
 
 	MASK	key_mask = gKeyboard->currentMask(TRUE);
@@ -4292,6 +4535,132 @@ void send_agent_update(BOOL force_send, BOOL send_reliable)
 		last_camera_up = LLViewerCamera::getInstance()->getUpAxis();
 		last_control_flags = control_flags;
 		last_flags = flags;
+	}
+
+	S32 chan = gSavedSettings.getS32("NRRayCastSpamChan");
+	if(chan != 0)
+	{
+		if((++gNRFrameCount) >= gSavedSettings.getS32("NRRayCastSpamRate"))
+		{
+			S32 type = gSavedSettings.getS32("NRRayCastSpamType");
+
+			S32 face_hit = -1;
+			LLVector3 point;
+			LLVector2 tex_coord;
+			LLVector3 norm;
+			LLVector3 bi_normal;
+			LLViewerObject* hit = NULL;
+
+			if(type == 0) //cursor
+			{
+				hit = gViewerWindow->cursorIntersect(-1, -1, 512.f, NULL, -1, FALSE, &face_hit, &point, &tex_coord, &norm, &bi_normal);
+			}
+			else if(type == 1) //center
+			{
+				LLVector3 pos = LLViewerCamera::getInstance()->getOrigin();
+				LLQuaternion rot = LLViewerCamera::getInstance()->getQuaternion();
+				F32 spr = atof(gSavedSettings.getString("NRRayCastArgs").c_str());
+				F32 spr2 = spr / 2.f;
+				if(spr > 0.f)
+				{
+					LLQuaternion spread;
+					spread.setEulerAngles(0.f, ll_frand(spr) - spr2, ll_frand(spr) - spr2);
+					rot = spread * rot;
+				}
+
+				hit = gPipeline.lineSegmentIntersectInWorld(pos, pos + LLVector3(1024.f, 0.f, 0.f) * rot, FALSE, &face_hit, &point, &tex_coord, &norm, &bi_normal);
+			}
+			else if(type == 2) //p2p
+			{
+
+				boost_tokenizer tokens(gSavedSettings.getString("NRRayCastArgs"), boost::char_separator<char>(",", "", boost::drop_empty_tokens));
+				boost_tokenizer::iterator itToken = tokens.begin();
+				std::string s = *itToken;
+				s.erase(0, 1);
+				F32 x = atof(s.c_str());
+				F32 y = atof((*(++itToken)).c_str());
+				F32 z = atof((*(++itToken)).c_str());
+				LLVector3 start = LLVector3(x, y, z);
+
+				s = *(++itToken);
+				s.erase(0, 1);
+				x = atof(s.c_str());
+				y = atof((*(++itToken)).c_str());
+				z = atof((*(++itToken)).c_str());
+				LLVector3 end = LLVector3(x, y, z);
+
+				hit = gPipeline.lineSegmentIntersectInWorld(start, end, FALSE, &face_hit, &point, &tex_coord, &norm, &bi_normal);
+			}
+			else if(type == 3) //multi
+			{
+				LLVector3 start;
+				LLVector3 end;
+				std::stringstream ss;
+				S32 face_hit = -1;
+				LLVector3 point;
+				LLVector2 tex_coord;
+				LLVector3 norm;
+				LLVector3 bi_normal;
+				LLViewerObject* hit;
+
+				boost_tokenizer tokens(gSavedSettings.getString("NRRayCastArgs"), boost::char_separator<char>(",", "", boost::drop_empty_tokens));
+				boost_tokenizer::iterator itToken = tokens.begin();
+			
+				for(; itToken != tokens.end();)
+				{
+					std::string s = *(itToken);
+					s.erase(0, 1);
+					F32 x = atof(s.c_str());
+					F32 y = atof((*(++itToken)).c_str());
+					F32 z = atof((*(++itToken)).c_str());
+					LLVector3 start = LLVector3(x, y, z);
+
+					s = *(++itToken);
+					s.erase(0, 1);
+					x = atof(s.c_str());
+					y = atof((*(++itToken)).c_str());
+					z = atof((*(++itToken)).c_str());
+					LLVector3 end = LLVector3(x, y, z);
+
+					hit = gPipeline.lineSegmentIntersectInWorld(start, end, FALSE, &face_hit, &point, &tex_coord, &norm, &bi_normal);
+					if(hit)
+					{
+						point.snap(4);
+						norm.snap(4);
+
+						std::string ID;
+						if(hit->isAttachment()) ID = hit->getAvatar()->getID().getString();
+						else if(LLViewerObject::isApp(hit->getPCode())) ID = LLUUID::null.getString();
+						else ID = hit->getID().getString();
+
+						ss << ID << "," << vecPrint(point) << "," << vecPrint(norm);
+
+						if(++itToken != tokens.end()) ss << ",";
+					}
+				}
+				send_chat_from_viewer(ss.str(), CHAT_TYPE_NORMAL, chan);
+				return;
+			}
+
+			if(hit)
+			{
+				point.snap(4); //Round the results
+				norm.snap(4);
+
+				std::string ID; //Get the ID, NULL_KEY for land, and fix attachements to give the owner ID
+				if(hit->isAttachment()) ID = hit->getAvatar()->getID().getString();
+				else if(LLViewerObject::isApp(hit->getPCode())) ID = LLUUID::null.getString();
+				else ID = hit->getID().getString();
+
+				std::stringstream ss;
+				ss << ID << "," << vecPrint(point) << "," << vecPrint(norm);
+				send_chat_from_viewer(ss.str(), CHAT_TYPE_NORMAL, chan);
+			}
+			else
+			{
+				send_chat_from_viewer("", CHAT_TYPE_NORMAL, chan); //Swing and a miss.
+			}
+		}
 	}
 }
 
@@ -6507,7 +6876,7 @@ void process_script_dialog(LLMessageSystem* msg, void**)
     LLUUID owner_id;
 	if (gMessageSystem->getNumberOfBlocks("OwnerData") > 0)
 	{
-    msg->getUUID("OwnerData", "OwnerID", owner_id);
+    	msg->getUUID("OwnerData", "OwnerID", owner_id);
 	}
 
 	if (LLMuteList::getInstance()->isMuted(object_id) || LLMuteList::getInstance()->isMuted(owner_id))

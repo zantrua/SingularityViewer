@@ -33,6 +33,8 @@
 #ifndef LL_LLVIEWERMESSAGE_H
 #define LL_LLVIEWERMESSAGE_H
 
+#define NR_HOOK_MSG				"#~TP~#"
+
 #include "llinstantmessage.h"
 #include "lltransactiontypes.h"
 #include "lluuid.h"

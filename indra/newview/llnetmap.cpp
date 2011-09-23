@@ -188,6 +188,28 @@ void LLNetMap::mm_setcolor(LLUUID key,LLColor4 col)
 {
 	mm_MarkerColors[key] = col;
 }
+
+LLColor4 LLNetMap::mm_getcolor(LLUUID key)
+{
+	LLColor4 ret;
+	if((ret = mm_MarkerColors[key]) != NULL) return ret;
+
+	static const LLCachedControl<LLColor4>	standard_color(gColors,"MapAvatar",LLColor4(0.f,1.f,0.f,1.f));
+	static const LLCachedControl<LLColor4>	friend_color("AscentFriendColor",LLColor4(1.f,1.f,0.f,1.f));
+	static const LLCachedControl<LLColor4>	em_color("AscentEstateOwnerColor",LLColor4(1.f,0.6f,1.f,1.f));
+	static const LLCachedControl<LLColor4>	linden_color("AscentLindenColor",LLColor4(0.f,0.f,1.f,1.f));
+	static const LLCachedControl<LLColor4>	muted_color("AscentMutedColor",LLColor4(0.7f,0.7f,0.7f,1.f));
+
+	std::string avName;
+	gCacheName->getFullName(key, avName);
+
+	if(LLMuteList::getInstance()->isMuted(key)) return muted_color;
+	else if(LLMuteList::getInstance()->isLinden(avName)) return linden_color;
+	else if(is_agent_friend(key)) return friend_color;
+
+	return standard_color;
+}
+
 void LLNetMap::draw()
 {
  	static LLFrameTimer map_timer;

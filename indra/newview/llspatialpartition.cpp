@@ -33,7 +33,8 @@
 #include "llviewerprecompiledheaders.h"
 
 #include "llspatialpartition.h"
-
+#include "llnetmap.h"
+#include "llfloatermap.h"
 #include "llviewerwindow.h"
 #include "llviewerobjectlist.h"
 #include "llvovolume.h"
@@ -53,6 +54,7 @@
 #include "llrender.h"
 #include "lloctree.h"
 #include "llvoavatar.h"
+#include "lluuid.h"
 
 const F32 SG_OCCLUSION_FUDGE = 0.25f;
 #define SG_DISCARD_TOLERANCE 0.01f
@@ -2107,6 +2109,60 @@ void drawBoxOutline(const LLVector3& pos, const LLVector3& size)
 	gGL.end();
 }
 
+//zmod OBB
+void drawOBB(const LLVector3& pos, const LLVector3& size, const LLQuaternion& rot)
+{
+	if(gSavedSettings.getBOOL("NRPulseHitboxes"))
+	{
+		glLineWidth(llmax(4.f*sinf(gFrameTimeSeconds*2.f)+1.f, 1.f));
+	}
+	LLVector3 delta = size * .5f;
+
+	//TODO: do this with GL
+	LLVector3 p0 = pos + LLVector3(delta.mV[0], delta.mV[1], delta.mV[2]) * rot;
+	LLVector3 p1 = pos + LLVector3(-delta.mV[0], delta.mV[1], delta.mV[2]) * rot;
+	LLVector3 p2 = pos + LLVector3(-delta.mV[0], -delta.mV[1], delta.mV[2]) * rot;
+	LLVector3 p3 = pos + LLVector3(delta.mV[0], -delta.mV[1], delta.mV[2]) * rot;
+	LLVector3 p4 = pos + LLVector3(delta.mV[0], delta.mV[1], -delta.mV[2]) * rot;
+	LLVector3 p5 = pos + LLVector3(-delta.mV[0], delta.mV[1], -delta.mV[2]) * rot;
+	LLVector3 p6 = pos + LLVector3(-delta.mV[0], -delta.mV[1], -delta.mV[2]) * rot;
+	LLVector3 p7 = pos + LLVector3(delta.mV[0], -delta.mV[1], -delta.mV[2]) * rot;
+
+	gGL.begin(LLRender::LINES); 
+	
+	//top
+	gGL.vertex3fv(p0.mV);
+	gGL.vertex3fv(p1.mV);
+	gGL.vertex3fv(p1.mV);
+	gGL.vertex3fv(p2.mV);
+	gGL.vertex3fv(p2.mV);
+	gGL.vertex3fv(p3.mV);
+	gGL.vertex3fv(p3.mV);
+	gGL.vertex3fv(p0.mV);
+	
+	//bottom
+	gGL.vertex3fv(p4.mV);
+	gGL.vertex3fv(p5.mV);
+	gGL.vertex3fv(p5.mV);
+	gGL.vertex3fv(p6.mV);
+	gGL.vertex3fv(p6.mV);
+	gGL.vertex3fv(p7.mV);
+	gGL.vertex3fv(p7.mV);
+	gGL.vertex3fv(p4.mV);
+	
+	//other four
+	gGL.vertex3fv(p0.mV);
+	gGL.vertex3fv(p4.mV);
+	gGL.vertex3fv(p1.mV);
+	gGL.vertex3fv(p5.mV);
+	gGL.vertex3fv(p2.mV);
+	gGL.vertex3fv(p6.mV);
+	gGL.vertex3fv(p3.mV);
+	gGL.vertex3fv(p7.mV);
+
+	gGL.end();
+}
+
 void drawBoxOutline(const LLVector4a& pos, const LLVector4a& size)
 {
 	drawBoxOutline(reinterpret_cast<const LLVector3&>(pos), reinterpret_cast<const LLVector3&>(size));
@@ -2953,14 +3009,9 @@ void renderAvatarCollisionVolumes(LLVOAvatar* avatar)
 
 void renderAgentTarget(LLVOAvatar* avatar)
 {
-	// render these for self only (why, i don't know)
-	if (avatar->isSelf())
-	{
-		renderCrossHairs(avatar->getPositionAgent(), 0.2f, LLColor4(1, 0, 0, 0.8f));
-		renderCrossHairs(avatar->mDrawable->getPositionAgent(), 0.2f, LLColor4(1, 0, 0, 0.8f));
-		renderCrossHairs(avatar->mRoot.getWorldPosition(), 0.2f, LLColor4(1, 1, 1, 0.8f));
-		renderCrossHairs(avatar->mPelvisp->getWorldPosition(), 0.2f, LLColor4(0, 0, 1, 0.8f));
-	}
+	//zmod
+	//TODO: prediction
+	renderCrossHairs(avatar->getPositionAgent(), 0.2f, LLColor4(1, 0, 0, 0.8f));
 }
 
 
@@ -3090,36 +3141,24 @@ public:
 
 			LLVOAvatar* avatar = dynamic_cast<LLVOAvatar*>(drawable->getVObj().get());
 			
-			if (avatar && gPipeline.hasRenderDebugMask(LLPipeline::RENDER_DEBUG_AVATAR_VOLUME))
+			if(avatar && avatar != gAgent.getAvatarObject())
 			{
-				renderAvatarCollisionVolumes(avatar);
-			}
-
-			if (avatar && gPipeline.hasRenderDebugMask(LLPipeline::RENDER_DEBUG_AGENT_TARGET))
-			{
-				renderAgentTarget(avatar);
-			}
+				LLColor4 color = LLFloaterMap::getInstance()->getNetMap()->mm_getcolor(avatar->getID());
+				gGL.color4fv(color.mV);
 			
-			if (gDebugGL)
-			{
-				for (U32 i = 0; i < (U32)drawable->getNumFaces(); ++i)
+				if (gPipeline.hasRenderDebugMask(LLPipeline::RENDER_DEBUG_AVATAR_VOLUME))
 				{
-					LLFace* facep = drawable->getFace(i);
-					U8 index = facep->getTextureIndex();
-					if (facep->mDrawInfo)
-					{
-						if (index < 255)
-						{
-							if (facep->mDrawInfo->mTextureList.size() <= index)
-							{
-								llerrs << "Face texture index out of bounds." << llendl;
-							}
-							else if (facep->mDrawInfo->mTextureList[index] != facep->getTexture())
-							{
-								llerrs << "Face texture index incorrect." << llendl;
-							}
-						}
-					}
+					renderAvatarCollisionVolumes(avatar);
+				}
+
+				if (gPipeline.hasRenderDebugMask(LLPipeline::RENDER_DEBUG_AVATAR_BBOXES))
+				{
+					drawOBB(avatar->getPosition(), avatar->getScale(), avatar->getRotation());
+				}
+
+				if (gPipeline.hasRenderDebugMask(LLPipeline::RENDER_DEBUG_AGENT_TARGET))
+				{
+					renderAgentTarget(avatar);
 				}
 			}
 		}
@@ -3269,6 +3308,7 @@ void LLSpatialPartition::renderDebug()
 									  LLPipeline::RENDER_DEBUG_BATCH_SIZE |
 									  LLPipeline::RENDER_DEBUG_UPDATE_TYPE |
 									  LLPipeline::RENDER_DEBUG_BBOXES |
+									  LLPipeline::RENDER_DEBUG_AVATAR_BBOXES |
 									  LLPipeline::RENDER_DEBUG_POINTS |
 									  LLPipeline::RENDER_DEBUG_TEXTURE_PRIORITY |
 									  LLPipeline::RENDER_DEBUG_TEXTURE_ANIM |

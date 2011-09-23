@@ -441,6 +441,7 @@ protected:
 	// I-beam is just after the mCursorPos-th character.
 public:
 	S32				mCursorPos;
+	LLKeywords		mKeywords;
 protected:
 	// Use these to determine if a click on an embedded item is a drag or not.
 	S32				mMouseDownX;
@@ -502,7 +503,6 @@ private:
 	//
 	// Data
 	//
-	LLKeywords		mKeywords;
 	static LLColor4 mLinkColor;
 	static void			(*mURLcallback) (const std::string& url);
 	static bool			(*mSecondlifeURLcallback) (const std::string& url);

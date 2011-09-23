@@ -172,7 +172,7 @@ class ViewerManifest(LLManifest):
 
 class WindowsManifest(ViewerManifest):
     def final_exe(self):
-        return 'SingularityViewer.exe'
+        return 'NeonRain.exe'
 
 
     def construct(self):
@@ -393,10 +393,10 @@ class WindowsManifest(ViewerManifest):
         installer_file = "Singularity_%(version_short)s_Setup.exe"
         grid_vars_template = """
         OutFile "%(installer_file)s"
-        !define VIEWERNAME "Singularity Viewer"
+        !define VIEWERNAME "Neon Rain"
         !define INSTFLAGS "%(flags)s"
-        !define INSTNAME   "SingularityViewer"
-        !define SHORTCUT   "Singularity Viewer"
+        !define INSTNAME   "NeonRain"
+        !define SHORTCUT   "Neon Rain"
         !define URLNAME   "secondlife"
         !define INSTALL_ICON "install_icon_singularity.ico"
         !define UNINSTALL_ICON "install_icon_singularity.ico"
@@ -567,7 +567,7 @@ class DarwinManifest(ViewerManifest):
                                  { 'viewer_binary' : self.dst_path_of('Contents/MacOS/'+self.app_name())})
 
     def app_name(self):
-        return "Singularity"
+        return "Neon Rain"
         
     def info_plist_name(self):
         return "Info-Singularity.plist"

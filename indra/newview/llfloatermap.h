@@ -57,6 +57,8 @@ public:
     /*virtual*/ void    open();
 // [/RLVa:KB]
 
+	LLNetMap* getNetMap(){ return mPanelMap; }
+
 private:
 	LLFloaterMap(const LLSD& key = LLSD());
 	LLNetMap*		mPanelMap;

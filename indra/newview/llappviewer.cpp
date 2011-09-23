@@ -2158,7 +2158,7 @@ bool LLAppViewer::initConfiguration()
     mYieldTime = gSavedSettings.getS32("YieldTime");
              
 	// XUI:translate
-	gSecondLife = "Singularity Viewer";
+	gSecondLife = "Neon Rain";
 
 	// Read skin/branding settings if specified.
 	//if (! gDirUtilp->getSkinDir().empty() )

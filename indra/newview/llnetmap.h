@@ -66,8 +66,8 @@ public:
 	virtual BOOL	handleToolTip( S32 x, S32 y, std::string& msg, LLRect* sticky_rect_screen );
 
 	void			renderScaledPointGlobal( const LLVector3d& pos, const LLColor4U &color, F32 radius );
-
-	static void mm_setcolor(LLUUID key,LLColor4 col); //moymod
+	static void		mm_setcolor(LLUUID key,LLColor4 col); //moymod
+	static LLColor4 mm_getcolor(LLUUID key);
 
 private:
 
@@ -222,8 +222,17 @@ private:
 	};
 
 
+	class NRAutoTP : public LLMemberListener<LLNetMap>
+	{
+	public:
+		/*virtual*/ bool handleEvent(LLPointer<LLEvent> event, const LLSD& userdata);
+	};
 
-
+	class NREnableAutoTP : public LLMemberListener<LLNetMap>
+	{
+	public:
+		/*virtual*/ bool handleEvent(LLPointer<LLEvent> event, const LLSD& userdata);
+	};
 
 	class LLEnableProfile : public LLMemberListener<LLNetMap>
 	{

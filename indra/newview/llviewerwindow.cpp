@@ -251,7 +251,7 @@ S32 CHAT_BAR_HEIGHT = 28;
 S32 OVERLAY_BAR_HEIGHT = 20;
 
 const U8 NO_FACE = 255;
-BOOL gQuietSnapshot = FALSE;
+BOOL gQuietSnapshot = TRUE;
 
 const F32 MIN_AFK_TIME = 2.f; // minimum time after setting away state before coming back
 const F32 MAX_FAST_FRAME_TIME = 0.5f;
@@ -999,6 +999,16 @@ BOOL LLViewerWindow::handleMouseUp(LLWindow *window,  LLCoordGL pos, MASK mask)
 
 BOOL LLViewerWindow::handleRightMouseDown(LLWindow *window,  LLCoordGL pos, MASK mask)
 {
+	//zmod copy rclick zoom from phoenix
+	gSavedSettings.setBOOL("zmm_rightmousedown", 1);
+	if ( gAgentCamera.cameraMouselook() && !gSavedSettings.getBOOL("zmm_isinml") )
+	{
+        //llinfos << "zmmisinml set to true" << llendl;
+        gSavedSettings.setBOOL("zmm_isinml", 1);
+        F32 deffov = LLViewerCamera::getInstance()->getDefaultFOV();
+        gSavedSettings.setF32("zmm_deffov", deffov);
+        LLViewerCamera::getInstance()->setDefaultFOV(gSavedSettings.getF32("zmm_deffov") / gSavedSettings.getF32("zmm_mlfov"));
+    }
 	S32 x = pos.mX;
 	S32 y = pos.mY;
 	x = llround((F32)x / mDisplayScale.mV[VX]);
@@ -1106,6 +1116,13 @@ BOOL LLViewerWindow::handleRightMouseDown(LLWindow *window,  LLCoordGL pos, MASK
 
 BOOL LLViewerWindow::handleRightMouseUp(LLWindow *window,  LLCoordGL pos, MASK mask)
 {
+	gSavedSettings.setBOOL("zmm_rightmousedown",0);
+    if(gSavedSettings.getBOOL("zmm_isinml") == 1)
+	{
+        //llinfos << "zmmisinml set to false" << llendl;
+        gSavedSettings.setBOOL("zmm_isinml",0);
+        LLViewerCamera::getInstance()->setDefaultFOV(gSavedSettings.getF32("zmm_deffov"));
+    }
 	S32 x = pos.mX;
 	S32 y = pos.mY;
 	x = llround((F32)x / mDisplayScale.mV[VX]);
@@ -1251,7 +1268,7 @@ void LLViewerWindow::handleMouseMove(LLWindow *window,  LLCoordGL pos, MASK mask
 	// Activate the hover picker on mouse move.
 	if (gHoverView)
 	{
-		gHoverView->setTyping(FALSE);
+		if(!gSavedSettings.getBOOL("NRSneakyTyping")) gHoverView->setTyping(FALSE);
 	}
 }
 

@@ -291,3 +291,8 @@ BOOL LLResizeBar::handleDoubleClick(S32 x, S32 y, MASK mask)
 	return TRUE;
 }
 
+void LLResizeBar::setChangeCallback( void(*function)(void*), void* value)
+{
+	mDragCallback = function;
+	if(value) mDragCallbackUserdata = value;
+}

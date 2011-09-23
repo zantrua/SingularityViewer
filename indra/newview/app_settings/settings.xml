@@ -20,7 +20,359 @@
     <key>Value</key>
     <integer>1</integer>
   </map>
-	
+    <key>NRSneakyTyping</key>
+    <map>
+      <key>Comment</key>
+      <string>Prevent sending of start and stop typing messages</string>
+      <key>Persist</key>
+      <integer>1</integer>
+      <key>Type</key>
+      <string>Boolean</string>
+      <key>Value</key>
+      <integer>1</integer>
+    </map>
+    <key>NRTPRequestTime</key>
+    <map>
+      <key>Comment</key>
+      <string>Unix time of last TP request</string>
+      <key>Persist</key>
+      <integer>0</integer>
+      <key>Type</key>
+      <string>S32</string>
+      <key>Value</key>
+      <integer>0</integer>
+    </map>
+    <key>NRTPRequestTimeout</key>
+    <map>
+      <key>Comment</key>
+      <string>Number of seconds before TP requests become invalid</string>
+      <key>Persist</key>
+      <integer>1</integer>
+      <key>Type</key>
+      <string>S32</string>
+      <key>Value</key>
+      <integer>5</integer>
+    </map>
+    <key>PhoenixLSLPreprocessor</key>
+    <map>
+      <key>Comment</key>
+      <string>Phoenix LSL Preprocessor</string>
+      <key>Persist</key>
+      <integer>1</integer>
+      <key>Type</key>
+      <string>Boolean</string>
+      <key>Value</key>
+      <integer>0</integer>
+    </map>
+    <key>PhoenixLSLOptimizer</key>
+    <map>
+      <key>Comment</key>
+      <string>Phoenix LSL Optimizer</string>
+      <key>Persist</key>
+      <integer>1</integer>
+      <key>Type</key>
+      <string>Boolean</string>
+      <key>Value</key>
+      <integer>1</integer>
+    </map>
+    <key>PhoenixLSLTextCompress</key>
+    <map>
+      <key>Comment</key>
+      <string>Phoenix LSL Text Compress</string>
+      <key>Persist</key>
+      <integer>1</integer>
+      <key>Type</key>
+      <string>Boolean</string>
+      <key>Value</key>
+      <integer>0</integer>
+    </map>
+    <key>PhoenixLSLLazyLists</key>
+    <map>
+      <key>Comment</key>
+      <string>Phoenix LSL Lazy Lists</string>
+      <key>Persist</key>
+      <integer>1</integer>
+      <key>Type</key>
+      <string>Boolean</string>
+      <key>Value</key>
+      <integer>0</integer>
+    </map>
+    <key>PhoenixLSLSwitch</key>
+    <map>
+      <key>Comment</key>
+      <string>Phoenix LSL Switch</string>
+      <key>Persist</key>
+      <integer>1</integer>
+      <key>Type</key>
+      <string>Boolean</string>
+      <key>Value</key>
+      <integer>0</integer>
+    </map>
+    <key>PhoenixScriptErrorRect</key>
+    <map>
+      <key>Comment</key>
+      <string>o.o</string>
+      <key>Persist</key>
+      <integer>1</integer>
+      <key>Type</key>
+      <string>Rect</string>
+      <key>Value</key>
+      <array>
+        <integer>4</integer>
+        <integer>120</integer>
+        <integer>496</integer>
+        <integer>51</integer>
+      </array>
+    </map>
+    <key>PhoenixColorllFunction</key>
+    <map>
+      <key>Comment</key>
+      <string>Color for llFunction builtins in the script editor.</string>
+      <key>Persist</key>
+      <integer>0</integer>
+      <key>Type</key>
+      <string>Color3</string>
+      <key>Value</key>
+      <array>
+        <real>0.5</real>
+        <real>0.0</real>
+        <real>0.15</real>
+      </array>
+    </map>
+    <key>PhoenixEnableHDDInclude</key>
+    <map>
+      <key>Comment</key>
+      <string>orly</string>
+      <key>Persist</key>
+      <integer>1</integer>
+      <key>Type</key>
+      <string>Boolean</string>
+      <key>Value</key>
+      <integer>0</integer>
+    </map>
+    <key>PhoenixHDDIncludeLocation</key>
+    <map>
+      <key>Comment</key>
+      <string>toast</string>
+      <key>Persist</key>
+      <integer>1</integer>
+      <key>Type</key>
+      <string>String</string>
+      <key>Value</key>
+      <string></string>
+    </map>
+    <key>PhoenixLSLExternalEditor</key>
+    <map>
+      <key>Comment</key>
+      <string>Controls the location of the External editor</string>
+      <key>Persist</key>
+      <integer>1</integer>
+      <key>Type</key>
+      <string>String</string>
+      <key>Value</key>
+      <string />
+    </map>
+    <key>mm_fastminimap</key>
+    <map>
+      <key>Comment</key>
+      <string>Skips object drawing on the minimap when true</string>
+      <key>Persist</key>
+      <integer>1</integer>
+      <key>Type</key>
+      <string>Boolean</string>
+      <key>Value</key>
+      <integer>1</integer>
+    </map>
+    <key>NRPulseHitboxes</key>
+    <map>
+      <key>Comment</key>
+      <string>Makdes hitboxes pulse</string>
+      <key>Persist</key>
+      <integer>1</integer>
+      <key>Type</key>
+      <string>Boolean</string>
+      <key>Value</key>
+      <integer>1</integer>
+    </map>
+    <key>NRCombatRender</key>
+    <map>
+      <key>Comment</key>
+      <string>Skips texturing objects and some other stuff</string>
+      <key>Persist</key>
+      <integer>1</integer>
+      <key>Type</key>
+      <string>Boolean</string>
+      <key>Value</key>
+      <integer>0</integer>
+    </map>
+    <key>NRRayCastSpamChan</key>
+    <map>
+      <key>Comment</key>
+      <string>Channel to spam with ray cast data</string>
+      <key>Persist</key>
+      <integer>0</integer>
+      <key>Type</key>
+      <string>S32</string>
+      <key>Value</key>
+      <integer>0</integer>
+    </map>
+    <key>NRRayCastSpamRate</key>
+    <map>
+      <key>Comment</key>
+      <string>Rate in frames at which to spam ray cast data</string>
+      <key>Persist</key>
+      <integer>1</integer>
+      <key>Type</key>
+      <string>S32</string>
+      <key>Value</key>
+      <integer>0</integer>
+    </map>
+    <key>NRRayCastSpamType</key>
+    <map>
+      <key>Comment</key>
+      <string>Type of raycast to spam</string>
+      <key>Persist</key>
+      <integer>1</integer>
+      <key>Type</key>
+      <string>S32</string>
+      <key>Value</key>
+      <integer>0</integer>
+    </map>
+    <key>NRRayCastArgs</key>
+    <map>
+      <key>Comment</key>
+      <string>Argument for ray cast spam</string>
+      <key>Persist</key>
+      <integer>1</integer>
+      <key>Type</key>
+      <string>String</string>
+      <key>Value</key>
+      <string />
+    </map>
+    <key>NRMiniMapThrowVel</key>
+    <map>
+      <key>Comment</key>
+      <string>Velocity of thrown projectile</string>
+      <key>Persist</key>
+      <integer>1</integer>
+      <key>Type</key>
+      <string>F32</string>
+      <key>Value</key>
+      <real>20.0</real>
+    </map>
+    <key>NRMiniMapThrowBuoyancy</key>
+    <map>
+      <key>Comment</key>
+      <string>Buoyancy of thrown projectile, in terms of gravity</string>
+      <key>Persist</key>
+      <integer>1</integer>
+      <key>Type</key>
+      <string>F32</string>
+      <key>Value</key>
+      <real>1.0</real>
+    </map>
+    <key>NRMiniMapSelRad</key>
+    <map>
+      <key>Comment</key>
+      <string>radius in pixels of the selection brush</string>
+      <key>Persist</key>
+      <integer>1</integer>
+      <key>Type</key>
+      <string>F32</string>
+      <key>Value</key>
+      <real>12.0</real>
+    </map>
+    <key>NRMiniMapThrowWidth</key>
+    <map>
+      <key>Comment</key>
+      <string>Width of throw line</string>
+      <key>Persist</key>
+      <integer>1</integer>
+      <key>Type</key>
+      <string>S32</string>
+      <key>Value</key>
+      <integer>10</integer>
+    </map>
+    <key>NRMiniMapLineColor</key>
+    <map>
+      <key>Comment</key>
+      <string>Color of line in center of minimap frustrum</string>
+      <key>Persist</key>
+      <integer>1</integer>
+      <key>Type</key>
+      <string>Color4</string>
+      <key>Value</key>
+      <array>
+        <real>1.0</real>
+        <real>0.0</real>
+        <real>0.0</real>
+        <real>1.0</real>
+      </array>
+      <key>IsCOA</key>
+      <integer>1</integer>
+    </map>
+    <key>NRMiniMapThrowColor</key>
+    <map>
+      <key>Comment</key>
+      <string>Color of throwing distance T</string>
+      <key>Persist</key>
+      <integer>1</integer>
+      <key>Type</key>
+      <string>Color4</string>
+      <key>Value</key>
+      <array>
+        <real>1.0</real>
+        <real>1.0</real>
+        <real>0.0</real>
+        <real>1.0</real>
+      </array>
+      <key>IsCOA</key>
+      <integer>1</integer>
+    </map>
+    <key>NRPulseSelection</key>
+    <map>
+      <key>Comment</key>
+      <string>Pulse selection silhouettes</string>
+      <key>Persist</key>
+      <integer>1</integer>
+      <key>Type</key>
+      <string>Boolean</string>
+      <key>Value</key>
+      <integer>1</integer>
+    </map>
+    <key>NRSelectionTriangulate</key>
+    <map>
+      <key>Comment</key>
+      <string>Add triangle based selection silhouettes(Slow with big selections)</string>
+      <key>Persist</key>
+      <integer>1</integer>
+      <key>Type</key>
+      <string>Boolean</string>
+      <key>Value</key>
+      <integer>1</integer>
+    </map>
+    <key>PhoenixRenderHighlightSelections</key>
+    <map>
+      <key>Comment</key>
+      <string>Highlight selections and shit</string>
+      <key>Persist</key>
+      <integer>1</integer>
+      <key>Type</key>
+      <string>Boolean</string>
+      <key>Value</key>
+      <integer>1</integer>
+    </map>
+    <key>BananaToolboxShowMore</key>
+    <map>
+      <key>Comment</key>
+      <string>Show more shit on the toolbox</string>
+      <key>Persist</key>
+      <integer>1</integer>
+      <key>Type</key>
+      <string>Boolean</string>
+      <key>Value</key>
+      <integer>1</integer>
+    </map>
   <key>HTTPRequestRate</key>
   <map>
     <key>Comment</key>
@@ -66,7 +418,50 @@
     <key>Value</key>
     <integer>100</integer>
   </map>
-
+    <key>zmm_deffov</key>
+    <map>
+      <key>Comment</key>
+      <string>default field of view for right mouse zoom</string>
+      <key>Persist</key>
+      <integer>1</integer>
+      <key>Type</key>
+      <string>F32</string>
+      <key>Value</key>
+      <real>1.0</real>
+    </map>
+    <key>zmm_mlfov</key>
+    <map>
+      <key>Comment</key>
+      <string>1=norm, under1 zoom out, over1 zoom in</string>
+      <key>Persist</key>
+      <integer>1</integer>
+      <key>Type</key>
+      <string>F32</string>
+      <key>Value</key>
+      <real>1</real>
+    </map>
+    <key>zmm_isinml</key>
+    <map>
+      <key>Comment</key>
+      <string>mouselook</string>
+      <key>Persist</key>
+      <integer>0</integer>
+      <key>Type</key>
+      <string>Boolean</string>
+      <key>Value</key>
+      <integer>0</integer>
+    </map>
+    <key>zmm_rightmousedown</key>
+    <map>
+      <key>Comment</key>
+      <string>insert rude comment here</string>
+      <key>Persist</key>
+      <integer>0</integer>
+      <key>Type</key>
+      <string>Boolean</string>
+      <key>Value</key>
+      <integer>0</integer>
+    </map>
   <key>AllowLargeSounds</key>
   <map>
     <key>Comment</key>
