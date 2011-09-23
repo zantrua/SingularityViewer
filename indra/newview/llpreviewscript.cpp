@@ -669,27 +669,27 @@ void LLScriptEdCore::initMenu()
 	// fixed dim.
 
 	LLMenuItemCheckGL* check = getChild<LLMenuItemCheckGL>("preproc_on");
-	check->setControlName("PhoenixLSLPreprocessor",NULL);
-	check->setMenuCallback(menu_toggle_gsaved,check);
+	check->setControlName("PhoenixLSLPreprocessor", NULL);
+	check->setMenuCallback(menu_toggle_gsaved, check);
 
 	if(gSavedSettings.getBOOL("PhoenixLSLPreprocessor"))
 	{
 		check = getChild<LLMenuItemCheckGL>("optim_on");
-		check->setControlName("PhoenixLSLOptimizer",NULL);
-		check->setMenuCallback(menu_toggle_gsaved,check);
+		check->setControlName("PhoenixLSLOptimizer", NULL);
+		check->setMenuCallback(menu_toggle_gsaved, check);
 
 		check = getChild<LLMenuItemCheckGL>("lazylist_on");
-		check->setControlName("PhoenixLSLLazyLists",NULL);
-		check->setMenuCallback(menu_toggle_gsaved,check);
+		check->setControlName("PhoenixLSLLazyLists", NULL);
+		check->setMenuCallback(menu_toggle_gsaved, check);
 
 		check = getChild<LLMenuItemCheckGL>("switch_on");
-		check->setControlName("PhoenixLSLSwitch",NULL);
-		check->setMenuCallback(menu_toggle_gsaved,check);
+		check->setControlName("PhoenixLSLSwitch", NULL);
+		check->setMenuCallback(menu_toggle_gsaved, check);
 	}
 
 }
 
- //this should not be needed
+//this should not be needed
 //TODO: Remove
 void LLScriptEdCore::onToggleProc(void* userdata)
 {

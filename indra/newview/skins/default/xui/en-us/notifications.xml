@@ -1,7 +1,7 @@
 <?xml version="1.0" ?><notifications>
 
   <global name="VIEWER_NAME">
-    Singularity Viewer
+    Neon Rain
   </global>
 
   <global name="VIEWER_SITE">
@@ -6812,7 +6812,12 @@ An error has occurred while trying to connect to voice chat for [VOICE_CHANNEL_N
       <context key="VOICE_CHANNEL_NAME"/>
     </unique>
   </notification>
-
+  <notification
+     icon="alertmodal.tga"
+     name="PreprocEnabled"
+     type="alertmodal">
+    Toggling the preprocessor will not take full effect unless you close and reopen this editor.
+  </notification>
   <notification
    duration="10"
    icon="notifytip.tga"

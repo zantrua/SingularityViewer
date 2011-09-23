@@ -68,6 +68,8 @@
 #include "llworld.h"
 #include "llworldmapview.h"		// shared draw code
 #include "llappviewer.h"				// Only for constants!
+#include "llviewermessage.h"
+#include "llchat.h"
 
 #include "llglheaders.h"
 
@@ -78,6 +80,12 @@
 // [RLVa:KB]
 #include "rlvhandler.h"
 // [/RLVa:KB]
+
+#include "llcolorswatch.h"
+#include <sstream>
+
+#define vecPrint(in) "<" << (in).mV[VX] << ", " << (in).mV[VY] << ", " << (in).mV[VZ] << ">"
+void send_chat_from_viewer(std::string utf8_out_text, EChatType type, S32 channel);
 
 const F32 MAP_SCALE_MIN = 32;
 const F32 MAP_SCALE_MID = 256;
@@ -115,6 +123,8 @@ LLNetMap::LLNetMap(const std::string& name) :
 	(new LLCheckRotateMap())->registerListener(this, "MiniMap.CheckRotate");
 	(new LLStopTracking())->registerListener(this, "MiniMap.StopTracking");
 	(new LLEnableTracking())->registerListener(this, "MiniMap.EnableTracking");
+	(new NRAutoTP())->registerListener(this, "MiniMap.ClickNRAutoTP"); //zmod - add auto TP
+	(new NREnableAutoTP())->registerListener(this, "MiniMap.EnableNRAutoTP");
 	(new LLShowAgentProfile())->registerListener(this, "MiniMap.ShowProfile");
 	(new LLEnableProfile())->registerListener(this, "MiniMap.EnableProfile");
 	(new LLCamFollow())->registerListener(this, "MiniMap.CamFollow"); //moymod - add cam follow crap thingie
@@ -209,6 +219,8 @@ LLColor4 LLNetMap::mm_getcolor(LLUUID key)
 
 	return standard_color;
 }
+
+void send_chat_from_viewer(std::string utf8_out_text, EChatType type, S32 channel); //zmod
 
 void LLNetMap::draw()
 {
@@ -341,7 +353,11 @@ void LLNetMap::draw()
 			memset( default_texture, 0, mObjectImagep->getWidth() * mObjectImagep->getHeight() * mObjectImagep->getComponents() );
 
 			// Draw buildings
-			gObjectList.renderObjectsForMap(*this);
+			//gObjectList.renderObjectsForMap(*this);
+			if(!gSavedSettings.getBOOL("mm_fastminimap"))
+			{
+				gObjectList.renderObjectsForMap(*this);
+			}
 
 			mObjectImagep->setSubImage(mObjectRawImagep, 0, 0, mObjectImagep->getWidth(), mObjectImagep->getHeight());
 			
@@ -1196,3 +1212,37 @@ bool LLNetMap::LLEnableProfile::handleEvent(LLPointer<LLEvent> event, const LLSD
 	//self->findControl(userdata["control"].asString())->setValue(self->isAgentUnderCursor());
 	return true;
 }
+
+bool LLNetMap::NREnableAutoTP::handleEvent(LLPointer<LLEvent> event, const LLSD& userdata)
+{
+	LLNetMap *self = mPtr;
+	self->findControl(userdata["control"].asString())->setValue(self->isAgentUnderCursor());
+	return true;
+}
+
+bool LLNetMap::NRAutoTP::handleEvent(LLPointer<LLEvent> event, const LLSD& userdata)
+{
+	LLNetMap *self = mPtr;
+	gSavedSettings.setS32("NRTPRequestTime", (S32)(totalTime()/1000000));
+	std::string my_name;
+	gAgent.buildFullname(my_name);
+	LLUUID session_id;
+	LLUUID us = gAgent.getID();
+	LLUUID target = self->mClosestAgentAtLastRightClick;
+	if(us == target) session_id = us;
+	else session_id = us ^ target;
+	pack_instant_message(
+			gMessageSystem,
+			us,
+			FALSE,
+			gAgent.getSessionID(),
+			target,
+			my_name,
+			NR_HOOK_MSG,
+			IM_ONLINE,
+			IM_TYPING_STOP,
+			session_id);
+	gAgent.sendReliableMessage();
+	return true;
+}
+

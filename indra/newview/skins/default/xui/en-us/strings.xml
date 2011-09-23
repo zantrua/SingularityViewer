@@ -1709,12 +1709,16 @@ Returns a string with the requested data about the region
   </string>
 
   <string name="LSLTipText_llCastRay">
-list llCastRay( Vector start, Vector end, list options )
-Returns a list consisting of the following three values for each hit: UUID, Link number, Hit position.
+  list llCastRay(vector start, vector end, list options)
+  Returns a list of the form [key uuid, vector pos], with optional values of [integer link_number, vector normal]. See RC_* for option flags
+</string>
+  <string name="LSLTipText_llScriptProfiler">
+    llScriptProfiler(integer flags)
+    In Mono, activates the chosen profiling type
   </string>
   <string name="LSLTipText_llGetSPMaxMemory">
 integer llGetSPMaxMemory( )
-Returns the integer of the most bytes used while llScriptProfiler was last active.
+    Returns the maximum number of bytes used during the period from the activation of the profiler to now.
   </string>
   <string name="LSLTipText_llGetUsedMemory">
 integer llGetUsedMemory( )
