@@ -1856,7 +1856,7 @@ void process_improved_im(LLMessageSystem *msg, void **user_data)
 				//Generate slurl
 				std::string slrul = gAgent.getSLURL();
 				//Generate idle time
-				LLVOAvatar* myavatar = gAgent.getAvatarObject();
+				LLVOAvatar* myavatar = gAgentAvatarp;
 				std::string idle_time = "";
 				if(myavatar)idle_time = llformat("%d mins", (U8)(myavatar->mIdleTimer.getElapsedTimeF32()/60.));
 
@@ -3991,9 +3991,9 @@ void process_teleport_finish(LLMessageSystem* msg, void**)
 	gAgent.setRegion(regionp);
 	gObjectList.shiftObjects(shift_vector);
 
-	if (gAgent.getAvatarObject())
+	if (gAgentAvatarp)
 	{
-		gAgent.getAvatarObject()->clearChatText();
+		gAgentAvatarp->clearChatText();
 		gAgentCamera.slamLookAt(look_at);
 	}
 	gAgent.setPositionAgent(pos);
@@ -4087,7 +4087,7 @@ void process_agent_movement_complete(LLMessageSystem* msg, void**)
 	std::string version_channel;
 	msg->getString("SimData", "ChannelVersion", version_channel);
 
-	LLVOAvatar* avatarp = gAgent.getAvatarObject();
+	LLVOAvatar* avatarp = gAgentAvatarp;
 	if (!avatarp)
 	{
 		// Could happen if you were immediately god-teleported away on login,
@@ -5325,7 +5325,7 @@ void process_avatar_sit_response(LLMessageSystem *mesgsys, void **user_data)
 	BOOL force_mouselook;
 	mesgsys->getBOOLFast(_PREHASH_SitTransform, _PREHASH_ForceMouselook, force_mouselook);
 
-	LLVOAvatar* avatar = gAgent.getAvatarObject();
+	LLVOAvatar* avatar = gAgentAvatarp;
 
 	if (avatar && dist_vec_squared(camera_eye, camera_at) > 0.0001f)
 	{
