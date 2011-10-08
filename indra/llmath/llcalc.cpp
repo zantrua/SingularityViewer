@@ -13,6 +13,7 @@
 
 #include "llcalcparser.h"
 #include "llmath.h"
+#include <sstream>
 
 
 // Variable names for use in the build floater
@@ -112,7 +113,7 @@ void LLCalc::updateVariables(LLSD& vars)
 
 bool LLCalc::evalString(const std::string& expression, F32& result)
 {
-	std::string expr_upper = expression;
+	/*std::string expr_upper = expression;
 	LLStringUtil::toUpper(expr_upper);
 	
 	LLCalcParser calc(result, &mConstants, &mVariables);
@@ -141,5 +142,10 @@ bool LLCalc::evalString(const std::string& expression, F32& result)
 		return false;
 	}
 	
-	return true;
+	return TRUE;*/
+
+	std::stringstream ss;
+	ss << expression;
+	ss >> result;
+	return TRUE;
 }

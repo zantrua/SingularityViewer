@@ -325,7 +325,6 @@ std::string JCLSLPreprocessor::lslopt(std::string script)
 			bool repass = false;
 			do
 			{
-				
 				repass = false;
 				std::map<std::string, std::string>::iterator func_it;
 				for(func_it = functions.begin(); func_it != functions.end(); func_it++)
@@ -353,7 +352,7 @@ std::string JCLSLPreprocessor::lslopt(std::string script)
 						}
 					}
 				}
-			}while(repass);
+			} while(repass);
 
 			std::map<std::string, std::string> gvars;
 			boost::regex findvars("(integer|float|string|key|vector|rotation|list)\\s+([a-zA-Z0-9_]+)([^\\(\\);]*;)");
@@ -496,7 +495,8 @@ public:
 					}
 				}
 			}
-        }else
+        }
+		else
 		{
 			//todo check on HDD in user defined dir for file in question
 		}
@@ -571,9 +571,9 @@ void cache_script(std::string name, std::string content)
 	content += "\n";/*hack!*/
 	//cmdline_printchat("writing "+name+" to cache");
 	std::string path = gDirUtilp->getExpandedFilename(LL_PATH_CACHE,"lslpreproc",name);
-	LLAPRFile infile(path.c_str(), LL_APR_WB);
+	LLAPRFile infile(path.c_str(), LL_APR_WB, 0, LLAPRFile::long_lived);
 	apr_file_t *fp = infile.getFileHandle();
-	if(fp)infile.write(content.c_str(), content.length());
+	if(fp) infile.write(content.c_str(), content.length());
 	infile.close();
 }
 
@@ -619,12 +619,15 @@ void JCLSLPreprocessor::JCProcCacheCallback(LLVFS *vfs, const LLUUID& iuuid, LLA
 					item->setAssetUUID(uuid);
 					self->cached_assetids[name] = uuid;//.insert(uuid.asString());
 					self->start_process();
-				}else
+				}
+				else
 				{
 					cmdline_printchat("something fucked");
 				}
-			}else self->mCore->mErrorList->addCommentText(std::string("Error: script named '")+name+"' isn't safe to copy to the filesystem. This include will fail.");
-		}else
+			}
+			else self->mCore->mErrorList->addCommentText(std::string("Error: script named '")+name+"' isn't safe to copy to the filesystem. This include will fail.");
+		}
+		else
 		{
 			self->mCore->mErrorList->addCommentText(std::string("Error caching "+name));
 		}
@@ -648,7 +651,7 @@ void JCLSLPreprocessor::preprocess_script(BOOL close, BOOL defcache)
 	std::string script = mCore->mEditor->getText();
 	if(mMainScriptName == "")//more sanity
 	{
-		const LLViewerInventoryItem* item = NULL;
+		LLViewerInventoryItem* item = NULL;
 		LLPreview* preview = (LLPreview*)mCore->mUserdata;
 		if(preview)
 		{
@@ -677,14 +680,14 @@ list lazy_list_set(list target, integer pos, list newval)\n\
     integer end = llGetListLength(target);\n\
     if(end > pos)\n\
     {\n\
-        target = llListReplaceList(target,newval,pos,pos);\n\
+        target = llListReplaceList(target, newval, pos, pos);\n\
     }else if(end == pos)\n\
     {\n\
         target += newval;\n\
     }else\n\
     {\n\
         do\n\
-        {\n\
+    {\n\
             target += [0];\n\
             end += 1;\n\
         }while(end < pos);\n\

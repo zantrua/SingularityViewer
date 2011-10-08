@@ -2066,12 +2066,26 @@ void LLAgentCamera::handleScrollWheel(S32 clicks)
 		}
 		else if (mFocusOnAvatar && (mCameraMode == CAMERA_MODE_THIRD_PERSON))
 		{
-			F32 camera_offset_initial_mag = getCameraOffsetInitial().magVec();
-			
-			F32 current_zoom_fraction = mTargetCameraDistance / (camera_offset_initial_mag * gSavedSettings.getF32("CameraOffsetScale"));
-			current_zoom_fraction *= 1.f - pow(ROOT_ROOT_TWO, clicks);
-			
-			cameraOrbitIn(current_zoom_fraction * camera_offset_initial_mag * gSavedSettings.getF32("CameraOffsetScale"));
+			//zmod camera handles
+			if(gKeyboard->getKeyDown(KEY_CONTROL))
+ 			{
+ 				//mCameraOffsetDefault.mV[2]+=clicks/10.0f;;
+				mThirdPersonHeadOffset.mV[2]+=clicks/10.0f; 
+			}
+			else if(gKeyboard->getKeyDown(KEY_SHIFT))
+ 			{
+ 				gSavedSettings.setVector3("FocusOffsetDefault",
+ 				gSavedSettings.getVector3("FocusOffsetDefault") + LLVector3(0.0f,0.0f,clicks/10.0f));
+ 			}
+			else
+			{
+				F32 camera_offset_initial_mag = getCameraOffsetInitial().magVec();
+				
+				F32 current_zoom_fraction = mTargetCameraDistance / (camera_offset_initial_mag * gSavedSettings.getF32("CameraOffsetScale"));
+				current_zoom_fraction *= 1.f - pow(ROOT_ROOT_TWO, clicks);
+				
+				cameraOrbitIn(current_zoom_fraction * camera_offset_initial_mag * gSavedSettings.getF32("CameraOffsetScale"));
+			}
 		}
 		else
 		{

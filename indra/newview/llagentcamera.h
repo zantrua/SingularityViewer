@@ -112,6 +112,7 @@ public:
 	BOOL			calcCameraMinDistance(F32 &obj_min_distance);
 	F32				getCurrentCameraBuildOffset() 	{ return (F32)mCameraFocusOffset.length(); }
 	void			clearCameraLag() { mCameraLag.clearVec(); }
+	void			setDefaultFOV(F32 zoom) { mCameraFOVDefault = zoom; }
 private:
 	F32				mCurrentCameraDistance;	 		// Current camera offset from avatar
 	F32				mTargetCameraDistance;			// Target camera offset from avatar

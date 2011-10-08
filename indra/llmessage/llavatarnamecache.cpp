@@ -241,9 +241,9 @@ public:
 			{
 				const LLUUID& agent_id = *it;
 
-				LL_WARNS("AvNameCache") << "LLAvatarNameResponder::result "
+				/*LL_WARNS("AvNameCache") << "LLAvatarNameResponder::result "
                                         << "failed id " << agent_id
-                                        << LL_ENDL;
+                                        << LL_ENDL;*/
 
                 LLAvatarNameCache::handleAgentError(agent_id);
 			}
@@ -279,8 +279,8 @@ void LLAvatarNameCache::handleAgentError(const LLUUID& agent_id)
 	if (existing == sCache.end())
     {
         // there is no existing cache entry, so make a temporary name from legacy
-        LL_WARNS("AvNameCache") << "LLAvatarNameCache get legacy for agent "
-                                << agent_id << LL_ENDL;
+        /*LL_WARNS("AvNameCache") << "LLAvatarNameCache get legacy for agent "
+                                << agent_id << LL_ENDL;*/
         gCacheName->get(agent_id, false,  // legacy compatibility
                         boost::bind(&LLAvatarNameCache::legacyNameCallback,
                                     _1, _2, _3));

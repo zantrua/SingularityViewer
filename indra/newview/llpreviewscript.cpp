@@ -1782,7 +1782,7 @@ void LLPreviewLSL::saveIfNeeded()
 	}
 
 	mPendingUploads = 0;
-	mScriptEd->mErrorList->deleteAllItems();
+	//mScriptEd->mErrorList->deleteAllItems();
 	mScriptEd->mEditor->makePristine();
 
 	// save off asset into file
@@ -1804,7 +1804,7 @@ void LLPreviewLSL::saveIfNeeded()
 		return;
 	}
 
-	std::string utf8text = mScriptEd->mEditor->getText();
+	std::string utf8text = mScriptEd->getScriptText();
 	fputs(utf8text.c_str(), fp);
 	fclose(fp);
 	fp = NULL;
@@ -2703,7 +2703,7 @@ void LLLiveLSLEditor::saveIfNeeded()
 		mScriptEd->mErrorList->addElement(row);
 		return;
 	}
-	std::string utf8text = mScriptEd->mEditor->getText();
+	std::string utf8text = mScriptEd->getScriptText();
 
 	// Special case for a completely empty script - stuff in one space so it can store properly.  See SL-46889
 	if ( utf8text.size() == 0 )
