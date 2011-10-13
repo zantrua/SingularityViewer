@@ -3226,7 +3226,8 @@ bool LLVOAvatar::loadClientTags()
 		{
 			return false;
 		}
-	}else
+	}
+	else
 	{
 		return false;
 	}
@@ -3248,7 +3249,29 @@ void LLVOAvatar::getClientInfo(std::string& client, LLColor4& color, BOOL useCom
 {
 	if (!getTE(TEX_HEAD_BODYPAINT))
 		 return;
-	std::string uuid_str = getTE(TEX_HEAD_BODYPAINT)->getID().asString(); //UUID of the head texture
+	LLUUID idx = getTE(TEX_HEAD_BODYPAINT)->getID();
+	if(LLVOAvatar::sClientResolutionList.has("isComplete") && LLVOAvatar::sClientResolutionList.has(idx.asString()) && isFullyLoaded())
+	{
+		LLSD cllsd = LLVOAvatar::sClientResolutionList[idx.asString()];
+		BOOL sPhoenixClientTagsShowAny = gSavedSettings.getBOOL("PhoenixClientTagsShowAny");
+		if(sPhoenixClientTagsShowAny || (cllsd.has("tpvd") && cllsd["tpvd"].asBoolean()))
+		{
+			LLColor4 colour;
+			BOOL sPhoenixDontUseMultipleColorTags = gSavedSettings.getBOOL("PhoenixDontUseMultipleColorTags");
+			if(sPhoenixDontUseMultipleColorTags || !cllsd.has("color") && cllsd.has("alt"))
+			{
+				cllsd = LLVOAvatar::sClientResolutionList[cllsd["alt"].asString()];
+			}
+			client = cllsd["name"].asString();
+			colour.setValue(cllsd["color"]);
+			if(colour.lengthSquared() != 0.f)
+			{
+				color = colour;
+				return;
+			}
+		}
+	}
+	std::string uuid_str = idx.asString(); //UUID of the head texture
 
 	static const LLCachedControl<LLColor4>	avatar_name_color(gColors,"AvatarNameColor",LLColor4(LLColor4U(251, 175, 93, 255)) );
 	if (isSelf())

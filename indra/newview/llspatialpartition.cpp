@@ -3014,7 +3014,6 @@ void renderAgentTarget(LLVOAvatar* avatar)
 	renderCrossHairs(avatar->getPositionAgent(), 0.2f, LLColor4(1, 0, 0, 0.8f));
 }
 
-
 class LLOctreeRenderNonOccluded : public LLOctreeTraveler<LLDrawable>
 {
 public:
@@ -3141,7 +3140,7 @@ public:
 
 			LLVOAvatar* avatar = dynamic_cast<LLVOAvatar*>(drawable->getVObj().get());
 			
-			if(avatar && avatar != gAgent.getAvatarObject())
+			if(avatar && !avatar->isSelf())
 			{
 				LLColor4 color = LLFloaterMap::getInstance()->getNetMap()->mm_getcolor(avatar->getID());
 				gGL.color4fv(color.mV);

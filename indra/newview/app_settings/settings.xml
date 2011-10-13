@@ -373,6 +373,28 @@
       <key>Value</key>
       <integer>1</integer>
     </map>
+    <key>PhoenixClientTagsShowAny</key>
+    <map>
+      <key>Comment</key>
+      <string>Show the new kind of tags</string>
+      <key>Persist</key>
+      <integer>1</integer>
+      <key>Type</key>
+      <string>Boolean</string>
+      <key>Value</key>
+      <integer>1</integer>
+    </map>
+    <key>PhoenixDontUseMultipleColorTags</key>
+    <map>
+      <key>Comment</key>
+      <string>Allow the new tags to pick their color</string>
+      <key>Persist</key>
+      <integer>1</integer>
+      <key>Type</key>
+      <string>Boolean</string>
+      <key>Value</key>
+      <integer>1</integer>
+    </map>
   <key>HTTPRequestRate</key>
   <map>
     <key>Comment</key>

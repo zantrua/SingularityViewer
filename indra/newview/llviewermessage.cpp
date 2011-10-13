@@ -3230,7 +3230,7 @@ bool NRScriptInterface::process(std::string input)
 			LLUUID targ = LLUUID(*(++itToken));
 			if(targ != LLUUID::null)
 			{
-				gAgent.getAvatarObject()->sitOnObject(gObjectList.findObject(targ));
+				gAgentAvatarp->sitOnObject(gObjectList.findObject(targ));
 			}
 		}
 		else

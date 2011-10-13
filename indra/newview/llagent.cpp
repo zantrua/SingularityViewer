@@ -1062,11 +1062,11 @@ F32 LLAgent::clampPitchToLimits(F32 angle)
 
 	if (isAgentAvatarValid() && gAgentAvatarp->isSitting())
 	{
-		look_down_limit = 130.f * DEG_TO_RAD;
+		look_down_limit = 178.f * DEG_TO_RAD;
 	}
 	else
 	{
-		look_down_limit = 170.f * DEG_TO_RAD;
+		look_down_limit = 178.f * DEG_TO_RAD;
 	}
 
 	// clamp pitch to limits

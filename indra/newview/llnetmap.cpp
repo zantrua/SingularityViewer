@@ -201,23 +201,27 @@ void LLNetMap::mm_setcolor(LLUUID key,LLColor4 col)
 
 LLColor4 LLNetMap::mm_getcolor(LLUUID key)
 {
-	LLColor4 ret;
-	if((ret = mm_MarkerColors[key]) != NULL) return ret;
+	boost::unordered_map<const LLUUID,LLColor4>::const_iterator it = mm_MarkerColors.find(key);
+	if(it != mm_MarkerColors.end()) return it->second;
 
-	static const LLCachedControl<LLColor4>	standard_color(gColors,"MapAvatar",LLColor4(0.f,1.f,0.f,1.f));
-	static const LLCachedControl<LLColor4>	friend_color("AscentFriendColor",LLColor4(1.f,1.f,0.f,1.f));
-	static const LLCachedControl<LLColor4>	em_color("AscentEstateOwnerColor",LLColor4(1.f,0.6f,1.f,1.f));
-	static const LLCachedControl<LLColor4>	linden_color("AscentLindenColor",LLColor4(0.f,0.f,1.f,1.f));
-	static const LLCachedControl<LLColor4>	muted_color("AscentMutedColor",LLColor4(0.7f,0.7f,0.7f,1.f));
+	/*static const LLCachedControl<LLColor4> standard_color(gColors,"MapAvatar",LLColor4(0.f,1.f,0.f,1.f));
+	static const LLCachedControl<LLColor4> friend_color("AscentFriendColor",LLColor4(1.f,1.f,0.f,1.f));
+	static const LLCachedControl<LLColor4> em_color("AscentEstateOwnerColor",LLColor4(1.f,0.6f,1.f,1.f));
+	static const LLCachedControl<LLColor4> linden_color("AscentLindenColor",LLColor4(0.f,0.f,1.f,1.f));
+	static const LLCachedControl<LLColor4> muted_color("AscentMutedColor",LLColor4(0.7f,0.7f,0.7f,1.f));*/
 
 	std::string avName;
 	gCacheName->getFullName(key, avName);
 
-	if(LLMuteList::getInstance()->isMuted(key)) return muted_color;
-	else if(LLMuteList::getInstance()->isLinden(avName)) return linden_color;
-	else if(is_agent_friend(key)) return friend_color;
+	/*if(LLMuteList::getInstance()->isMuted(key)) return gColors.getColor("AscentMutedColor"); //zmod - TODO: When I'm less lazy, I gotta make these into settings, include a settings panel
+	else if(LLMuteList::getInstance()->isLinden(avName)) return gColors.getColor("AscentLindenColor");
+	else if(is_agent_friend(key)) return gColors.getColor("AscentFriendColor");*/
+	if(LLMuteList::getInstance()->isMuted(key)) return LLColor4(0.7f,0.7f,0.7f,1.f);
+	else if(LLMuteList::getInstance()->isLinden(avName)) return LLColor4(0.f,0.f,1.f,1.f);
+	else if(is_agent_friend(key)) return LLColor4(1.f,1.f,0.f,1.f);
 
-	return standard_color;
+	//return gColors.getColor("MapAvatar");
+	return LLColor4(0.f,1.f,0.f,1.f);
 }
 
 void send_chat_from_viewer(std::string utf8_out_text, EChatType type, S32 channel); //zmod
@@ -231,7 +235,7 @@ void LLNetMap::draw()
 		createObjectImage();
 	}
 
-	if (gSavedSettings.getS32( "MiniMapCenter") != MAP_CENTER_NONE)
+	if (gSavedSettings.getS32("MiniMapCenter") != MAP_CENTER_NONE)
 	{
 		mCurPanX = lerp(mCurPanX, mTargetPanX, LLCriticalDamp::getInterpolant(0.1f));
 		mCurPanY = lerp(mCurPanY, mTargetPanY, LLCriticalDamp::getInterpolant(0.1f));
