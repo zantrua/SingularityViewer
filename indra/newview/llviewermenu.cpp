@@ -291,7 +291,6 @@ void handle_test_load_url(void*);
 extern BOOL gDebugClicks;
 extern BOOL gDebugWindowProc;
 extern BOOL gDebugTextEditorTips;
-//extern BOOL gDebugSelectMgr;
 extern BOOL gDebugAvatarRotation;
 extern BOOL gShowOverlayTitle;
 extern BOOL gOcclusionCull;
@@ -2395,7 +2394,7 @@ class LLSelfRemoveAllAttachments : public view_listener_t
 {
 	bool handleEvent(LLPointer<LLEvent> event, const LLSD& userdata)
 	{
-		LLAgentWearables::userRemoveAllAttachments(NULL);
+		LLAgentWearables::userRemoveAllAttachments();
 		return true;
 	}
 };
@@ -9178,7 +9177,7 @@ class LLEditEnableTakeOff : public view_listener_t
 			if ( !(rlv_handler_t::isEnabled()) || (gRlvWearableLocks.canRemove(type)) )
 // [/RLVa:KB]
 			
-				new_value = LLAgentWearables::selfHasWearable((void *)type);
+				new_value = LLAgentWearables::selfHasWearable(type);
 
 		gMenuHolder->findControl(control_name)->setValue(new_value);
 		return false;
@@ -9192,14 +9191,14 @@ class LLEditTakeOff : public view_listener_t
 		std::string clothing = userdata.asString();
 		if (clothing == "all")
 		{
-			LLAgentWearables::userRemoveAllClothes(NULL);
+			LLAgentWearables::userRemoveAllClothes();
 		}
 		else
 		{
 			LLWearableType::EType type = LLWearableType::typeNameToType(clothing);
 			if (type >= LLWearableType::WT_SHAPE 
 				&& type < LLWearableType::WT_COUNT)
-				LLAgentWearables::userRemoveWearable((void*)type);
+				LLAgentWearables::userRemoveWearable(type);
 		}
 		return true;
 	}
