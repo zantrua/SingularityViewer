@@ -79,9 +79,7 @@ protected:
 	// Create a pool that is allocated from the Operating System. Only used by LLAPRRootPool.
 	LLAPRPool(int) : mPool(NULL), mParent(NULL), mOwner(apr_os_thread_current())
 	{
-		apr_status_t const apr_pool_create_status = apr_pool_create(&mPool, NULL);
-		llassert_always(apr_pool_create_status == APR_SUCCESS);
-		llassert(mPool);
+		apr_pool_create(&mPool, NULL);
 		apr_pool_cleanup_register(mPool, this, &s_plain_cleanup, &apr_pool_cleanup_null);
 	}
 

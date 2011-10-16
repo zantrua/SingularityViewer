@@ -239,7 +239,7 @@ void LLFloaterScriptSearch::show(LLScriptEdCore* editor_core)
 		gFloaterView->getNewFloaterPosition(&left,&top);
 
 		// sInstance will be assigned in the constructor.
-		new LLFloaterScriptSearch("Script Search",LLRect(left,top,left + SCRIPT_SEARCH_WIDTH,top - SCRIPT_SEARCH_HEIGHT),editor_core);
+		new LLFloaterScriptSearch("Script Search", LLRect(left, top, left + SCRIPT_SEARCH_WIDTH, top - SCRIPT_SEARCH_HEIGHT), editor_core);
 	}
 
 	sInstance->open();		/*Flawfinder: ignore*/
@@ -1610,7 +1610,7 @@ LLPreviewLSL::LLPreviewLSL(const std::string& name, const LLRect& rect,
 	factory_map["script panel"] = LLCallbackMap(LLPreviewLSL::createScriptEdPanel, this);
 
 
-	LLUICtrlFactory::getInstance()->buildFloater(this,"floater_script_preview.xml", &factory_map);
+	LLUICtrlFactory::getInstance()->buildFloater(this, "floater_script_preview.xml", &factory_map);
 
 	const LLInventoryItem* item = getItem();	
 
@@ -2615,7 +2615,6 @@ void LLLiveLSLEditor::draw()
 void LLLiveLSLEditor::onSearchReplace(void* userdata)
 {
 	LLLiveLSLEditor* self = (LLLiveLSLEditor*)userdata;
-
 	LLScriptEdCore* sec = self->mScriptEd; 
 	LLFloaterScriptSearch::show(sec);
 }

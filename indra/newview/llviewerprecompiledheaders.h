@@ -57,6 +57,9 @@
 #pragma warning (disable : 4702) // warning C4702: unreachable code
 #endif
 
+//zmod
+#pragma warning (disable : 4716) //Fuck boost.
+
 #include <algorithm>
 #include <deque>
 #include <functional>

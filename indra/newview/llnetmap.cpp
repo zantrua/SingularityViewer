@@ -113,6 +113,11 @@ LLNetMap::LLNetMap(const std::string& name) :
 	mPixelsPerMeter = mScale / LLWorld::getInstance()->getRegionWidthInMeters();
 	mDotRadius = llmax(DOT_SCALE * mPixelsPerMeter, MIN_DOT_RADIUS);
 
+	//zmod
+	//mSelectionRadiusSquared = gSavedSettings.getF32("NRSelRad");
+	//mSelectionRadiusSquared *= mSelectionRadiusSquared;
+	//setScale(mScale);
+
 	mObjectImageCenterGlobal = gAgentCamera.getCameraPositionGlobal();
 	
 	// Register event listeners for popup menu
@@ -151,6 +156,20 @@ LLNetMap::LLNetMap(const std::string& name) :
 
 LLNetMap::~LLNetMap()
 {
+	gSavedSettings.setF32("MiniMapScale", mScale); //zmod
+}
+
+//zmod
+BOOL LLNetMap::postBuild()
+{
+	/*LLMenuGL* menu = LLUICtrlFactory::getInstance()->buildMenu("menu_mini_map.xml", this);
+	if (!menu)
+	{
+		menu = new LLMenuGL(LLStringUtil::null);
+	}
+	menu->setVisible(FALSE);
+	mPopupMenuHandle = menu->getHandle();*/
+	return TRUE;
 }
 
 void LLNetMap::setScale( F32 scale )
@@ -204,11 +223,11 @@ LLColor4 LLNetMap::mm_getcolor(LLUUID key)
 	boost::unordered_map<const LLUUID,LLColor4>::const_iterator it = mm_MarkerColors.find(key);
 	if(it != mm_MarkerColors.end()) return it->second;
 
-	/*static const LLCachedControl<LLColor4> standard_color(gColors,"MapAvatar",LLColor4(0.f,1.f,0.f,1.f));
-	static const LLCachedControl<LLColor4> friend_color("AscentFriendColor",LLColor4(1.f,1.f,0.f,1.f));
-	static const LLCachedControl<LLColor4> em_color("AscentEstateOwnerColor",LLColor4(1.f,0.6f,1.f,1.f));
-	static const LLCachedControl<LLColor4> linden_color("AscentLindenColor",LLColor4(0.f,0.f,1.f,1.f));
-	static const LLCachedControl<LLColor4> muted_color("AscentMutedColor",LLColor4(0.7f,0.7f,0.7f,1.f));*/
+	static const LLCachedControl<LLColor4> standard_color(gColors, "MapAvatar", LLColor4(0.f,1.f,0.f,1.f));
+	static const LLCachedControl<LLColor4> friend_color("AscentFriendColor", LLColor4(1.f,1.f,0.f,1.f));
+	static const LLCachedControl<LLColor4> em_color("AscentEstateOwnerColor", LLColor4(1.f,0.6f,1.f,1.f));
+	static const LLCachedControl<LLColor4> linden_color("AscentLindenColor", LLColor4(0.f,0.f,1.f,1.f));
+	static const LLCachedControl<LLColor4> muted_color("AscentMutedColor", LLColor4(0.7f,0.7f,0.7f,1.f));
 
 	std::string avName;
 	gCacheName->getFullName(key, avName);
@@ -399,7 +418,7 @@ void LLNetMap::draw()
 		LLUI::getCursorPositionLocal(this, &local_mouse_x, &local_mouse_y);
 		mClosestAgentToCursor.setNull();
 		F32 closest_dist = F32_MAX;
-		F32 min_pick_dist = mDotRadius * MIN_PICK_SCALE; 
+		F32 min_pick_dist = mDotRadius * MIN_PICK_SCALE;
 
 		// Draw avatars
 //		LLColor4 mapcolor = gAvatarMapColor;
@@ -409,6 +428,7 @@ void LLNetMap::draw()
 		static const LLCachedControl<LLColor4>	em_color("AscentEstateOwnerColor",LLColor4(1.f,0.6f,1.f,1.f));
 		static const LLCachedControl<LLColor4>	linden_color("AscentLindenColor",LLColor4(0.f,0.f,1.f,1.f));
 		static const LLCachedControl<LLColor4>	muted_color("AscentMutedColor",LLColor4(0.7f,0.7f,0.7f,1.f));
+		static const LLCachedControl<LLColor4>  line_color("NRMiniMapLineColor", LLColor4::red);
 
 		// Draw avatars
 // [RLVa:KB] - Version: 1.23.4 | Alternate: Snowglobe-1.2.4 | Checked: 2009-07-08 (RLVa-1.0.0e) | Modified: RLVa-0.2.0b
@@ -524,6 +544,24 @@ void LLNetMap::draw()
 
 		gGL.getTexUnit(0)->unbind(LLTexUnit::TT_TEXTURE);
 
+		F32 ordo = gSavedSettings.getF32("NRMiniMapThrowVel");
+		F32 FRAGFactor = gSavedSettings.getF32("NRMiniMapThrowBuoyancy");
+
+		F32 fag;
+		F32 dist = 0.f;
+		F32 nigger;
+		LLQuaternion juan = gAgent.getQuat();
+		if((LLVector3::x_axis * juan).mV[VZ] > 0.f)
+		{
+			juan.getEulerAngles(&nigger, &nigger, &fag);
+			LLQuaternion pedro;
+			pedro.setEulerAngles(0.f, 0.f, fag);
+			nigger = acosf((LLVector3::x_axis * juan) * (LLVector3::x_axis * pedro));
+			dist = ordo * ordo * sinf(2.f * nigger) / (9.80665f * FRAGFactor);
+		}
+
+		S32 width = gSavedSettings.getS32("NRMiniMapThrowWidth");
+
 		if (rotate_map)
 		{
 			gGL.color4fv(gColors.getColor("NetMapFrustum").mV);
@@ -532,6 +570,22 @@ void LLNetMap::draw()
 				gGL.vertex2f( ctr_x, ctr_y );
 				gGL.vertex2f( ctr_x - half_width_pixels, ctr_y + far_clip_pixels );
 				gGL.vertex2f( ctr_x + half_width_pixels, ctr_y + far_clip_pixels );
+			gGL.end();
+
+			gGL.begin( LLRender::LINES );
+				gGL.color3fv(gSavedSettings.getColor4("NRMiniMapLineColor").mV);
+
+				gGL.vertex2f( ctr_x, ctr_y );
+				gGL.vertex2f( ctr_x, ctr_y + far_clip_pixels );
+
+				if(gAgentCamera.getCameraMode() == CAMERA_MODE_MOUSELOOK)
+				{
+					gGL.color3fv(gSavedSettings.getColor4("NRMiniMapThrowColor").mV);
+					gGL.vertex2f( ctr_x, ctr_y );
+					gGL.vertex2f( ctr_x, ctr_y + dist );
+					gGL.vertex2f( ctr_x - width/2.f, ctr_y + dist );
+					gGL.vertex2f( ctr_x + width/2.f, ctr_y + dist );
+				}
 			gGL.end();
 		}
 		else
@@ -546,6 +600,19 @@ void LLNetMap::draw()
 					gGL.vertex2f( 0, 0 );
 					gGL.vertex2f( -half_width_pixels, far_clip_pixels );
 					gGL.vertex2f(  half_width_pixels, far_clip_pixels );
+				gGL.end();
+				gGL.begin( LLRender::LINES );
+					gGL.color3fv(gSavedSettings.getColor4("NRMiniMapLineColor").mV);
+					gGL.vertex2f( 0, 0 );
+					gGL.vertex2f( 0, far_clip_pixels );
+					if(gAgentCamera.getCameraMode() == CAMERA_MODE_MOUSELOOK)
+					{
+						gGL.color3fv(gSavedSettings.getColor4("NRMiniMapThrowColor").mV);
+						gGL.vertex2f( 0, 0 );
+						gGL.vertex2f( 0, dist );
+						gGL.vertex2f( -width/2.f, dist );
+						gGL.vertex2f( width/2.f, dist );
+					}
 				gGL.end();
 			gGL.popMatrix();
 		}

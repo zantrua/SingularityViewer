@@ -55,6 +55,7 @@ public:
 	LLNetMap(const std::string& name);
 	virtual ~LLNetMap();
 
+	virtual BOOL    postBuild();
 	virtual void	draw();
 	virtual void	reshape(S32 width, S32 height, BOOL called_from_parent = TRUE);
 	virtual BOOL	handleMouseDown( S32 x, S32 y, MASK mask );
@@ -102,6 +103,8 @@ private:
 	F32				mTargetPanY;
 	F32				mCurPanX;
 	F32				mCurPanY;
+
+	F32				mSelectionRadiusSquared; //zmod
 
 	BOOL			mPanning;			// map has been dragged
 	S32				mMouseDownPanX;		// value at start of drag
