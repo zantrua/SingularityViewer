@@ -58,17 +58,13 @@
 #endif
 
 //zmod
-#pragma warning (disable : 4716) //Fuck boost.
+//#pragma warning (disable : 4716) //Fuck boost.
 
 #include <algorithm>
 #include <deque>
 #include <functional>
 #include <map>
 #include <set>
-
-#ifdef LL_WINDOWS
-#pragma warning (3 : 4702) // we like level 3, not 4
-#endif
 
 // Library headers from llcommon project:
 #include "bitpack.h"
