@@ -544,8 +544,8 @@ void LLNetMap::draw()
 
 		gGL.getTexUnit(0)->unbind(LLTexUnit::TT_TEXTURE);
 
-		F32 ordo = gSavedSettings.getF32("NRMiniMapThrowVel");
-		F32 FRAGFactor = gSavedSettings.getF32("NRMiniMapThrowBuoyancy");
+		LLCachedControl<F32> ordo(gSavedSettings, "NRMiniMapThrowVel");
+		LLCachedControl<F32> FRAGFactor(gSavedSettings, "NRMiniMapThrowBuoyancy");
 
 		F32 fag;
 		F32 dist = 0.f;
@@ -560,11 +560,14 @@ void LLNetMap::draw()
 			dist = meters_to_pixels * ordo * ordo * sinf(2.f * nigger) / (9.80665f * FRAGFactor);
 		}
 
-		S32 width = gSavedSettings.getS32("NRMiniMapThrowWidth");
+		LLCachedControl<S32> width(gSavedSettings, "NRMiniMapThrowWidth");
+		LLCachedControl<LLColor4> frustCol(gColors, "NetMapFrustum");
+		LLCachedControl<LLColor4> centerLineCol(gSavedSettings, "NRMiniMapLineColor");
+		LLCachedControl<LLColor4> throwCol(gSavedSettings, "NRMiniMapThrowColor");
 
 		if (rotate_map)
 		{
-			gGL.color4fv(gColors.getColor("NetMapFrustum").mV);
+			gGL.color4fv(frustCol.get().mV);
 
 			gGL.begin( LLRender::TRIANGLES  );
 				gGL.vertex2f( ctr_x, ctr_y );
@@ -573,14 +576,14 @@ void LLNetMap::draw()
 			gGL.end();
 
 			gGL.begin( LLRender::LINES );
-				gGL.color3fv(gSavedSettings.getColor4("NRMiniMapLineColor").mV);
+				gGL.color3fv(centerLineCol.get().mV);
 
 				gGL.vertex2f( ctr_x, ctr_y );
 				gGL.vertex2f( ctr_x, ctr_y + far_clip_pixels );
 
 				if(gAgentCamera.getCameraMode() == CAMERA_MODE_MOUSELOOK)
 				{
-					gGL.color3fv(gSavedSettings.getColor4("NRMiniMapThrowColor").mV);
+					gGL.color3fv(throwCol.get().mV);
 					gGL.vertex2f( ctr_x, ctr_y );
 					gGL.vertex2f( ctr_x, ctr_y + dist );
 					gGL.vertex2f( ctr_x - width/2.f, ctr_y + dist );

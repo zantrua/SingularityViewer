@@ -704,10 +704,10 @@ class LinuxManifest(ViewerManifest):
         self.path("featuretable_linux.txt")
 
     def wrapper_name(self):
-        return 'singularity'
+        return 'neonrain'
 
     def binary_name(self):
-        return 'singularity-do-not-run-directly'
+        return 'neonrain-do-not-run-directly'
     
     def icon_name(self):
         return "singularity_icon.png"
