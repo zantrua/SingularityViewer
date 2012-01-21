@@ -557,7 +557,7 @@ void LLNetMap::draw()
 			LLQuaternion pedro;
 			pedro.setEulerAngles(0.f, 0.f, fag);
 			nigger = acosf((LLVector3::x_axis * juan) * (LLVector3::x_axis * pedro));
-			dist = ordo * ordo * sinf(2.f * nigger) / (9.80665f * FRAGFactor);
+			dist = meters_to_pixels * ordo * ordo * sinf(2.f * nigger) / (9.80665f * FRAGFactor);
 		}
 
 		S32 width = gSavedSettings.getS32("NRMiniMapThrowWidth");
