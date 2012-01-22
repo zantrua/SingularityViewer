@@ -584,22 +584,12 @@ void LLNotifyBox::format(std::string& msg, const LLStringUtil::format_map_t& arg
 {
 	// add default substitutions
 	LLStringUtil::format_map_t targs = args;
-<<<<<<< HEAD
-	targs["[SECOND_LIFE]"] = gHippoGridManager->getConnectedGrid()->getGridName();
-	targs["[GRID_NAME]"] = gHippoGridManager->getConnectedGrid()->getGridName();
-	targs["[GRID_OWNER]"] = gHippoGridManager->getConnectedGrid()->getGridOwner();	
-	targs["[GRID_SITE]"] = gHippoGridManager->getConnectedGrid()->getWebSite();
-	targs["[CURRENCY]"] = gHippoGridManager->getConnectedGrid()->getCurrencySymbol();
-	targs["[VIEWER_NAME]"] = "Neon Rain";
-=======
 	const LLStringUtil::format_map_t& default_args = LLTrans::getDefaultArgs();
 	for (LLStringUtil::format_map_t::const_iterator iter = default_args.begin();
 		 iter != default_args.end(); ++iter)
 	{
 		targs[iter->first] = iter->second;
 	}
-
->>>>>>> a39bf619775fce29521a91e7671205334bab7687
 	LLStringUtil::format(msg, targs);
 }
 

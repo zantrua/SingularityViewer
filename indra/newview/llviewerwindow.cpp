@@ -970,18 +970,6 @@ BOOL LLViewerWindow::handleMouseUp(LLWindow *window,  LLCoordGL pos, MASK mask)
 
 BOOL LLViewerWindow::handleRightMouseDown(LLWindow *window,  LLCoordGL pos, MASK mask)
 {
-<<<<<<< HEAD
-	//zmod copy rclick zoom from phoenix
-	gSavedSettings.setBOOL("zmm_rightmousedown", 1);
-	if ( gAgentCamera.cameraMouselook() && !gSavedSettings.getBOOL("zmm_isinml") )
-	{
-        //llinfos << "zmmisinml set to true" << llendl;
-        gSavedSettings.setBOOL("zmm_isinml", 1);
-        F32 deffov = LLViewerCamera::getInstance()->getDefaultFOV();
-        gSavedSettings.setF32("zmm_deffov", deffov);
-        LLViewerCamera::getInstance()->setDefaultFOV(gSavedSettings.getF32("zmm_deffov") / gSavedSettings.getF32("zmm_mlfov"));
-    }
-=======
 	//From Phoenix
 	gSavedSettings.setBOOL("zmm_rightmousedown",1);
     if(gAgentCamera.cameraMouselook()&&gSavedSettings.getBOOL("zmm_isinml")==0)
@@ -992,8 +980,7 @@ BOOL LLViewerWindow::handleRightMouseDown(LLWindow *window,  LLCoordGL pos, MASK
 		gSavedSettings.setF32("zmm_deffov",deffov);
 		LLViewerCamera::getInstance()->setDefaultFOV(gSavedSettings.getF32("zmm_deffov")/gSavedSettings.getF32("zmm_mlfov"));
 	}
-	
->>>>>>> a39bf619775fce29521a91e7671205334bab7687
+
 	S32 x = pos.mX;
 	S32 y = pos.mY;
 	x = llround((F32)x / mDisplayScale.mV[VX]);
@@ -1024,8 +1011,7 @@ BOOL LLViewerWindow::handleRightMouseDown(LLWindow *window,  LLCoordGL pos, MASK
 BOOL LLViewerWindow::handleRightMouseUp(LLWindow *window,  LLCoordGL pos, MASK mask)
 {
 	gSavedSettings.setBOOL("zmm_rightmousedown",0);
-<<<<<<< HEAD
-    if(gSavedSettings.getBOOL("zmm_isinml") == 1)
+    if(gSavedSettings.getBOOL("zmm_isinml"))
 	{
         //llinfos << "zmmisinml set to false" << llendl;
         gSavedSettings.setBOOL("zmm_isinml",0);
@@ -1108,9 +1094,6 @@ BOOL LLViewerWindow::handleRightMouseUp(LLWindow *window,  LLCoordGL pos, MASK m
 	}
 
 	if( !handled )
-=======
-	if(gSavedSettings.getBOOL("zmm_isinml")==1)
->>>>>>> a39bf619775fce29521a91e7671205334bab7687
 	{
 		llinfos << "zmmisinml set to false" << llendl;
 		gSavedSettings.setBOOL("zmm_isinml",0);

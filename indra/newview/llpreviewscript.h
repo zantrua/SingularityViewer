@@ -61,11 +61,8 @@ class LLScriptEdCore : public LLPanel, public LLEventTimer
 	friend class LLPreviewScript;
 	friend class LLPreviewLSL;
 	friend class LLLiveLSLEditor;
-<<<<<<< HEAD
 	friend class LLFloaterScriptSearch;
 	friend class JCLSLPreprocessor;
-=======
->>>>>>> a39bf619775fce29521a91e7671205334bab7687
 
 public:
 	LLScriptEdCore(

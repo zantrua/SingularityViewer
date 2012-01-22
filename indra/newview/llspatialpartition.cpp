@@ -52,14 +52,11 @@
 #include "llrender.h"
 #include "lloctree.h"
 #include "llvoavatar.h"
-<<<<<<< HEAD
 #include "lluuid.h"
-=======
 #include "llvoavatar.h"
 #include "llvolumemgr.h"
 #include "llglslshader.h"
 #include "llviewershadermgr.h"
->>>>>>> a39bf619775fce29521a91e7671205334bab7687
 
 const F32 SG_OCCLUSION_FUDGE = 0.25f;
 #define SG_DISCARD_TOLERANCE 0.01f

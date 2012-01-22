@@ -308,11 +308,7 @@ void LLNetMap::draw()
 
 		gGL.translatef( (F32) center_sw_left, (F32) center_sw_bottom, 0.f);
 		
-<<<<<<< HEAD
-		BOOL rotate_map = gSavedSettings.getBOOL("MiniMapRotate");
-=======
 		static LLCachedControl<bool> rotate_map("MiniMapRotate", true);
->>>>>>> a39bf619775fce29521a91e7671205334bab7687
 		if (rotate_map)
 		{
 			// rotate subsequent draws to agent rotation
@@ -484,13 +480,10 @@ void LLNetMap::draw()
 			{
 				avColor = it->second;
 			}
-<<<<<<< HEAD
 			else if(LLMuteList::getInstance()->isMuted(avatar_ids[i]))
 			{
 				avColor = muted_color;
 			}
-=======
->>>>>>> a39bf619775fce29521a91e7671205334bab7687
 			//Lindens are always more Linden than your friend, make that take precedence
 			else if(LLMuteList::getInstance()->isLinden(avName))
 			{

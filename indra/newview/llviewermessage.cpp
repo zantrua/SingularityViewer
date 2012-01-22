@@ -3293,17 +3293,11 @@ void process_chat_from_simulator(LLMessageSystem *msg, void **user_data)
 	LLViewerObject*	chatter;
 
 	msg->getString("ChatData", "FromName", from_name);
-    /*if (from_name.empty())
+    if (from_name.empty())
     {
         from_name = "(no name)";
-<<<<<<< HEAD
-    }*/
-	chat.mFromName = from_name;
-	
-=======
     }
-
->>>>>>> a39bf619775fce29521a91e7671205334bab7687
+	chat.mFromName = from_name;
 	msg->getUUID("ChatData", "SourceID", from_id);
 	chat.mFromID = from_id;
 	

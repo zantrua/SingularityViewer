@@ -144,6 +144,8 @@ const S32 MAX_EXPORT_SIZE = 1000;
 const S32 TEXT_EDIT_COLUMN_HEIGHT = 16;
 const S32 MAX_HISTORY_COUNT = 10;
 const F32 LIVE_HELP_REFRESH_TIME = 1.f;
+const S32 SCRIPT_SEARCH_WIDTH = 300;
+const S32 SCRIPT_SEARCH_HEIGHT = 120;
 
 static bool have_script_upload_cap(LLUUID& object_id)
 {
@@ -152,7 +154,6 @@ static bool have_script_upload_cap(LLUUID& object_id)
 }
 
 /// ---------------------------------------------------------------------------
-<<<<<<< HEAD
 /// LLFloaterScriptSearch
 /// ---------------------------------------------------------------------------
 class LLFloaterScriptSearch : public LLFloater
@@ -295,8 +296,6 @@ void LLFloaterScriptSearch::open()		/*Flawfinder: ignore*/
 
 
 /// ---------------------------------------------------------------------------
-=======
->>>>>>> a39bf619775fce29521a91e7671205334bab7687
 /// LLScriptEdCore
 /// ---------------------------------------------------------------------------
 
@@ -558,8 +557,6 @@ LLScriptEdCore::LLScriptEdCore(
 LLScriptEdCore::~LLScriptEdCore()
 {
 	deleteBridges();
-<<<<<<< HEAD
-
 	delete mLSLProc;
 	mLSLProc = NULL;
 }
@@ -601,8 +598,6 @@ void LLScriptEdCore::updateResizer(void* userdata)
 		self->mErrorListResizer->setResizeLimits(10,TabSetRect.getHeight()+newrect.getHeight());
 		gSavedSettings.setRect("PhoenixScriptErrorRect",newrect);
 	}
-=======
->>>>>>> a39bf619775fce29521a91e7671205334bab7687
 }
 
 BOOL LLScriptEdCore::tick()

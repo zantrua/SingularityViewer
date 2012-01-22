@@ -50,7 +50,7 @@ public:
 	std::string lslopt(std::string script);
 	std::string lslcomp(std::string script);
 
-	static LLUUID findInventoryByName(std::string name);
+	//static LLUUID findInventoryByName(std::string name);
 	static void JCProcCacheCallback(LLVFS *vfs, const LLUUID& uuid, LLAssetType::EType type,
 									void *userdata, S32 result, LLExtStat extstat);
 	void preprocess_script(BOOL close = FALSE, BOOL defcache = FALSE);

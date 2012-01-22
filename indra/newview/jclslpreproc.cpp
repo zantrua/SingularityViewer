@@ -38,6 +38,7 @@
 #include "llscrolllistctrl.h"
 #include "llviewertexteditor.h"
 #include "llinventorymodel.h"
+#include "llinventoryfunctions.h"
 #include "llviewercontrol.h"
 #include "llversionviewer.h"
 #include <iostream>
@@ -71,19 +72,19 @@ private:
 	std::string sName;
 };
 
-LLUUID JCLSLPreprocessor::findInventoryByName(std::string name)
+/*LLUUID JCLSLPreprocessor::findInventoryByName(std::string name)
 {
 	LLViewerInventoryCategory::cat_array_t cats;
 	LLViewerInventoryItem::item_array_t items;
-	ScriptMatches namematches(name);
-	gInventory.collectDescendentsIf(gAgent.getInventoryRootID(),cats,items,FALSE,namematches);
+	LLInventoryCollectFunctor namematches(
+	gInventory.collectDescendentsIf(gInventory.getRootFolderID(), cats, items, FALSE, namematches);
 
 	if (items.count())
 	{
 		return items[0]->getUUID();
 	}
 	return LLUUID::null;
-}
+}*/
 
 
 void cmdline_printchat(std::string message);
@@ -454,7 +455,7 @@ public:
 	{
 		std::string cfilename = filename.substr(1,filename.length()-2);
 		//cmdline_printchat(cfilename+":found_include_directive");
-		LLUUID item_id = JCLSLPreprocessor::findInventoryByName(cfilename);
+		/*LLUUID item_id = JCLSLPreprocessor::findInventoryByName(cfilename);
 		if(item_id.notNull())
 		{
 			LLViewerInventoryItem* item = gInventory.getItem(item_id);
@@ -473,7 +474,7 @@ public:
 					if (it == mProc->caching_files.end())
 					{
 						if(not_cached)mProc->display_error(std::string("Caching ")+cfilename);
-						else /*if(changed)*/mProc->display_error(cfilename+std::string(" has changed, recaching..."));
+						else //if(changed)mProc->display_error(cfilename+std::string(" has changed, recaching..."));
 						//one is always true
 						mProc->caching_files.insert(cfilename);
 						ProcCacheInfo* info = new ProcCacheInfo;
@@ -500,7 +501,7 @@ public:
 		{
 			//todo check on HDD in user defined dir for file in question
 		}
-        //++include_depth;
+        //++include_depth;*/
 		return false;
     }
 
