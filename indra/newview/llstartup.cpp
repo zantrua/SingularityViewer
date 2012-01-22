@@ -129,6 +129,7 @@
 #include "llimagebmp.h"
 #include "llimview.h" // for gIMMgr
 #include "llinventoryfunctions.h"
+#include "llinventorymodelbackgroundfetch.h"
 #include "llinventoryview.h"
 #include "llkeyboard.h"
 #include "llloginhandler.h"			// gLoginHandler, SLURL support
@@ -322,10 +323,10 @@ namespace
 	};
 }
 
-class LLGestureInventoryFetchObserver : public LLInventoryFetchObserver
+class LLGestureInventoryFetchObserver : public LLInventoryFetchItemsObserver
 {
 public:
-	LLGestureInventoryFetchObserver() {}
+	LLGestureInventoryFetchObserver(const uuid_vec_t& item_ids) : LLInventoryFetchItemsObserver(item_ids) {}
 	virtual void done()
 	{
 		// we've downloaded all the items, so repaint the dialog
@@ -2676,8 +2677,7 @@ bool idle_startup()
 					}
 				}
 
-				LLGestureInventoryFetchObserver* fetch = new LLGestureInventoryFetchObserver();
-				fetch->fetchItems(item_ids);
+				LLGestureInventoryFetchObserver* fetch = new LLGestureInventoryFetchObserver(item_ids);
 				// deletes itself when done
 				gInventory.addObserver(fetch);
 			}
@@ -2699,7 +2699,7 @@ bool idle_startup()
 			)
 		{
 			// Fetch inventory in the background
-			gInventory.startBackgroundFetch();
+			LLInventoryModelBackgroundFetch::instance().start();
 		}
 
 		// HACK: Inform simulator of window size.
@@ -2764,7 +2764,7 @@ bool idle_startup()
 		}
 
         //DEV-17797.  get null folder.  Any items found here moved to Lost and Found
-        LLInventoryModel::findLostItems();
+        LLInventoryModelBackgroundFetch::instance().findLostItems();
 
 		LLStartUp::setStartupState( STATE_PRECACHE );
 		timeout.reset();
