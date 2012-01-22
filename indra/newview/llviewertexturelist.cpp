@@ -159,12 +159,22 @@ void LLViewerTextureList::doPreloadImages()
 		image->setAddressMode(LLTexUnit::TAM_WRAP);	
 		mImagePreloads.insert(image);
 	}
-	image = LLViewerTextureManager::getFetchedTextureFromFile("8dcd4a48-2d37-4909-9f78-f7a9eb4ef903.j2c"/*"transparent.j2c"*/, MIPMAP_YES, LLViewerFetchedTexture::BOOST_UI, LLViewerTexture::FETCHED_TEXTURE,
+	image = LLViewerTextureManager::getFetchedTextureFromFile("transparent.j2c", MIPMAP_YES, LLViewerFetchedTexture::BOOST_UI, LLViewerTexture::FETCHED_TEXTURE,
 		0,0,LLUUID("8dcd4a48-2d37-4909-9f78-f7a9eb4ef903"));
 	if (image) 
 	{
 		image->setAddressMode(LLTexUnit::TAM_WRAP);
 		mImagePreloads.insert(image);
+	}
+	//Hideous hack to set filtering and address modes without messing with our texture classes.
+	{
+		LLPointer<LLUIImage> temp_image = image_list->getUIImage("checkerboard.tga",LLViewerFetchedTexture::BOOST_UI);
+		if(temp_image.notNull() && temp_image->getImage().notNull())
+		{
+			LLViewerTexture *tex = (LLViewerTexture*)temp_image->getImage().get();
+			tex->setAddressMode(LLTexUnit::TAM_WRAP);
+			tex->setFilteringOption(LLTexUnit::TFO_POINT);
+		}
 	}
 	
 }
@@ -515,6 +525,7 @@ LLViewerFetchedTexture *LLViewerTextureList::findImage(const LLUUID &image_id)
 
 void LLViewerTextureList::addImageToList(LLViewerFetchedTexture *image)
 {
+	llassert_always(mInitialized) ;
 	llassert(image);
 	if (image->isInImageList())
 	{
@@ -530,6 +541,7 @@ void LLViewerTextureList::addImageToList(LLViewerFetchedTexture *image)
 
 void LLViewerTextureList::removeImageFromList(LLViewerFetchedTexture *image)
 {
+	llassert_always(mInitialized) ;
 	llassert(image);
 	if (!image->isInImageList())
 	{
@@ -541,9 +553,11 @@ void LLViewerTextureList::removeImageFromList(LLViewerFetchedTexture *image)
 		}
 		llerrs << "LLViewerTextureList::removeImageFromList - Image not in list" << llendl;
 	}
-	if(mImageList.erase(image) != 1) 
+
+	S32 count = mImageList.erase(image) ;
+	if(count != 1) 
 	{
-		llerrs << "Error happens when remove image from mImageList!" << llendl ;
+		llerrs << "Error happens when remove image from mImageList: " << count << llendl ;
 	}
       
 	image->setInImageList(FALSE) ;
@@ -1366,7 +1380,8 @@ LLUIImagePtr LLUIImageList::getUIImageByID(const LLUUID& image_id, S32 priority)
 
 	const BOOL use_mips = FALSE;
 	const LLRect scale_rect = LLRect::null;
-	return loadUIImageByID(image_id, use_mips, scale_rect, (LLViewerTexture::EBoostLevel)priority);
+	const LLRect clip_rect = LLRect::null;
+	return loadUIImageByID(image_id, use_mips, scale_rect, clip_rect, (LLViewerTexture::EBoostLevel)priority);
 }
 
 LLUIImagePtr LLUIImageList::getUIImage(const std::string& image_name, S32 priority)
@@ -1380,32 +1395,33 @@ LLUIImagePtr LLUIImageList::getUIImage(const std::string& image_name, S32 priori
 
 	const BOOL use_mips = FALSE;
 	const LLRect scale_rect = LLRect::null;
-	return loadUIImageByName(image_name, image_name, use_mips, scale_rect, (LLViewerTexture::EBoostLevel)priority);
+	const LLRect clip_rect = LLRect::null;
+	return loadUIImageByName(image_name, image_name, use_mips, scale_rect, clip_rect, (LLViewerTexture::EBoostLevel)priority);
 }
 
 LLUIImagePtr LLUIImageList::loadUIImageByName(const std::string& name, const std::string& filename,
-											  BOOL use_mips, const LLRect& scale_rect, LLViewerTexture::EBoostLevel boost_priority )
+											  BOOL use_mips, const LLRect& scale_rect, const LLRect& clip_rect, LLViewerTexture::EBoostLevel boost_priority )
 {
 	if (boost_priority == LLViewerTexture::BOOST_NONE)
 	{
 		boost_priority = LLViewerTexture::BOOST_UI;
 	}
 	LLViewerFetchedTexture* imagep = LLViewerTextureManager::getFetchedTextureFromFile(filename, MIPMAP_NO, boost_priority);
-	return loadUIImage(imagep, name, use_mips, scale_rect);
+	return loadUIImage(imagep, name, use_mips, scale_rect, clip_rect);
 }
 
 LLUIImagePtr LLUIImageList::loadUIImageByID(const LLUUID& id,
-											BOOL use_mips, const LLRect& scale_rect, LLViewerTexture::EBoostLevel boost_priority)
+											BOOL use_mips, const LLRect& scale_rect, const LLRect& clip_rect, LLViewerTexture::EBoostLevel boost_priority)
 {
 	if (boost_priority == LLViewerTexture::BOOST_NONE)
 	{
 		boost_priority = LLViewerTexture::BOOST_UI;
 	}
 	LLViewerFetchedTexture* imagep = LLViewerTextureManager::getFetchedTexture(id, MIPMAP_NO, boost_priority);
-	return loadUIImage(imagep, id.asString(), use_mips, scale_rect);
+	return loadUIImage(imagep, id.asString(), use_mips, scale_rect, clip_rect);
 }
 
-LLUIImagePtr LLUIImageList::loadUIImage(LLViewerFetchedTexture* imagep, const std::string& name, BOOL use_mips, const LLRect& scale_rect)
+LLUIImagePtr LLUIImageList::loadUIImage(LLViewerFetchedTexture* imagep, const std::string& name, BOOL use_mips, const LLRect& scale_rect, const LLRect& clip_rect)
 {
 	if (!imagep) return NULL;
 
@@ -1426,13 +1442,14 @@ LLUIImagePtr LLUIImageList::loadUIImage(LLViewerFetchedTexture* imagep, const st
 		LLUIImageLoadData* datap = new LLUIImageLoadData;
 		datap->mImageName = name;
 		datap->mImageScaleRegion = scale_rect;
+		datap->mImageClipRegion = clip_rect;
 
 		imagep->setLoadedCallback(onUIImageLoaded, 0, FALSE, FALSE, datap, NULL);
 	}
 	return new_imagep;
 }
 
-LLUIImagePtr LLUIImageList::preloadUIImage(const std::string& name, const std::string& filename, BOOL use_mips, const LLRect& scale_rect)
+LLUIImagePtr LLUIImageList::preloadUIImage(const std::string& name, const std::string& filename, BOOL use_mips, const LLRect& scale_rect, const LLRect& clip_rect)
 {
 	// look for existing image
 	uuid_ui_image_map_t::iterator found_it = mUIImages.find(name);
@@ -1442,7 +1459,7 @@ LLUIImagePtr LLUIImageList::preloadUIImage(const std::string& name, const std::s
 		llerrs << "UI Image " << name << " already loaded." << llendl;
 	}
 
-	return loadUIImageByName(name, filename, use_mips, scale_rect);
+	return loadUIImageByName(name, filename, use_mips, scale_rect, clip_rect);
 }
 
 //static 
@@ -1456,6 +1473,7 @@ void LLUIImageList::onUIImageLoaded( BOOL success, LLViewerFetchedTexture *src_v
 	LLUIImageLoadData* image_datap = (LLUIImageLoadData*)user_data;
 	std::string ui_image_name = image_datap->mImageName;
 	LLRect scale_rect = image_datap->mImageScaleRegion;
+	LLRect clip_rect = image_datap->mImageClipRegion;
 	if (final)
 	{
 		delete image_datap;
@@ -1472,9 +1490,21 @@ void LLUIImageList::onUIImageLoaded( BOOL success, LLViewerFetchedTexture *src_v
 		// from power-of-2 gl image
 		if (success && imagep.notNull() && src_vi && (src_vi->getUrl().compare(0, 7, "file://")==0))
 		{
-			F32 clip_x = (F32)src_vi->getOriginalWidth() / (F32)src_vi->getFullWidth();
-			F32 clip_y = (F32)src_vi->getOriginalHeight() / (F32)src_vi->getFullHeight();
-			imagep->setClipRegion(LLRectf(0.f, clip_y, clip_x, 0.f));
+			F32 full_width = (F32)src_vi->getFullWidth();
+			F32 full_height = (F32)src_vi->getFullHeight();
+			F32 clip_x = (F32)src_vi->getOriginalWidth() / full_width;
+			F32 clip_y = (F32)src_vi->getOriginalHeight() / full_height;
+			if (clip_rect != LLRect::null)
+			{
+				imagep->setClipRegion(LLRectf(llclamp((F32)clip_rect.mLeft / full_width, 0.f, 1.f),
+											llclamp((F32)clip_rect.mTop / full_height, 0.f, 1.f),
+											llclamp((F32)clip_rect.mRight / full_width, 0.f, 1.f),
+											llclamp((F32)clip_rect.mBottom / full_height, 0.f, 1.f)));
+			}
+			else
+			{
+				imagep->setClipRegion(LLRectf(0.f, clip_y, clip_x, 0.f));
+			}
 			if (scale_rect != LLRect::null)
 			{
 				imagep->setScaleRegion(
@@ -1484,7 +1514,7 @@ void LLUIImageList::onUIImageLoaded( BOOL success, LLViewerFetchedTexture *src_v
 						llclamp((F32)scale_rect.mBottom / (F32)imagep->getHeight(), 0.f, 1.f)));
 			}
 
-			//imagep->onImageLoaded();
+			imagep->onImageLoaded();
 		}
 	}
 }
@@ -1703,7 +1733,7 @@ bool LLUIImageList::initFromFile()
 			child_nodep->getAttributeS32("scale_bottom", scale_rect.mBottom);
 			child_nodep->getAttributeS32("scale_top", scale_rect.mTop);
 			
-			preloadUIImage(image_name, file_name, use_mip_maps, scale_rect);
+			preloadUIImage(image_name, file_name, use_mip_maps, scale_rect, LLRectBase<S32>::null);
 			
 			child_nodep = child_nodep->getNextSibling();
 		}

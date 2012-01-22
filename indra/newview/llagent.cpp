@@ -69,6 +69,7 @@
 #include "llviewercontrol.h"
 #include "llviewerdisplay.h"
 #include "llviewerjoystick.h"
+#include "llviewerkeyboard.h" //For crouch toggle
 #include "llviewermediafocus.h"
 #include "llviewermenu.h"
 #include "llviewerobjectlist.h"
@@ -265,6 +266,9 @@ void LLAgent::init()
 //	LLDebugVarMessageBox::show("Camera Lag", &CAMERA_FOCUS_HALF_LIFE, 0.5f, 0.01f);
 
 	*mEffectColor = gSavedSettings.getColor4("EffectColor");
+
+	gSavedSettings.getControl("PreferredMaturity")->getValidateSignal()->connect(boost::bind(&LLAgent::validateMaturity, this, _2));
+	gSavedSettings.getControl("PreferredMaturity")->getSignal()->connect(boost::bind(&LLAgent::handleMaturity, this, _2));
 	
 	mInitialized = TRUE;
 }
@@ -435,7 +439,7 @@ void LLAgent::moveUp(S32 direction)
 		setControlFlags(AGENT_CONTROL_UP_NEG | AGENT_CONTROL_FAST_UP);
 	}
 
-	gAgentCamera.resetView();
+	if (!isCrouch) gAgentCamera.resetView();
 }
 
 //-----------------------------------------------------------------------------
@@ -1212,7 +1216,7 @@ void LLAgent::setAFK()
 		gAwayTimer.start();
 		if (gAFKMenu)
 		{
-			//*TODO:Translate
+			// *TODO:Translate
 			gAFKMenu->setLabel(std::string("Set Not Away"));
 		}
 	}
@@ -1238,7 +1242,7 @@ void LLAgent::clearAFK()
 		LL_INFOS("AFK") << "Clearing Away" << LL_ENDL;
 		if (gAFKMenu)
 		{
-			//*TODO:Translate
+			// *TODO:Translate
 			gAFKMenu->setLabel(std::string("Set Away"));
 		}
 	}
@@ -1261,7 +1265,7 @@ void LLAgent::setBusy()
 	mIsBusy = TRUE;
 	if (gBusyMenu)
 	{
-		//*TODO:Translate
+		// *TODO:Translate
 		gBusyMenu->setLabel(std::string("Set Not Busy"));
 	}
 	LLFloaterMute::getInstance()->updateButtons();
@@ -1276,7 +1280,7 @@ void LLAgent::clearBusy()
 	sendAnimationRequest(ANIM_AGENT_BUSY, ANIM_REQUEST_STOP);
 	if (gBusyMenu)
 	{
-		//*TODO:Translate
+		// *TODO:Translate
 		gBusyMenu->setLabel(std::string("Set Busy"));
 	}
 	LLFloaterMute::getInstance()->updateButtons();
@@ -2377,6 +2381,15 @@ const LLAgentAccess& LLAgent::getAgentAccess()
 	return *mAgentAccess;
 }
 
+bool LLAgent::validateMaturity(const LLSD& newvalue)
+{
+	return mAgentAccess->canSetMaturity(newvalue.asInteger());
+}
+
+void LLAgent::handleMaturity(const LLSD& newvalue)
+{
+	sendMaturityPreferenceToServer(newvalue.asInteger());
+}
 
 void LLAgent::buildFullname(std::string& name) const
 {
@@ -3582,7 +3595,7 @@ void LLAgent::teleportViaLocation(const LLVector3d& pos_global)
 			(F32)(pos_global.mdV[VY] - region_origin.mdV[VY]),
 			(F32)(pos_global.mdV[VZ]));
 		pos_local += offset;
-		teleportRequest(handle, pos_local);
+		teleportRequest(info->getHandle(), pos_local);
 	}
 	else if(regionp && 
 		teleportCore(regionp->getHandle() == to_region_handle_global((F32)pos_global.mdV[VX], (F32)pos_global.mdV[VY])))
@@ -3631,6 +3644,10 @@ void LLAgent::teleportViaLocationLookAt(const LLVector3d& pos_global)
 	mbTeleportKeepsLookAt = true;
 	gAgentCamera.setFocusOnAvatar(FALSE, ANIMATE);	// detach camera form avatar, so it keeps direction
 	U64 region_handle = to_region_handle(pos_global);
+	LLSimInfo* simInfo = LLWorldMap::instance().simInfoFromHandle(region_handle);
+	if(simInfo)
+		region_handle = simInfo->getHandle();
+
 	LLVector3 pos_local = (LLVector3)(pos_global - from_region_handle(region_handle));
 	teleportRequest(region_handle, pos_local, getTeleportKeepsLookAt());
 }
@@ -4062,14 +4079,14 @@ void LLAgent::renderAutoPilotTarget()
 		F32 height_meters;
 		LLVector3d target_global;
 
-		glMatrixMode(GL_MODELVIEW);
+		gGL.matrixMode(LLRender::MM_MODELVIEW);
 		gGL.pushMatrix();
 
 		// not textured
 		gGL.getTexUnit(0)->unbind(LLTexUnit::TT_TEXTURE);
 
 		// lovely green
-		glColor4f(0.f, 1.f, 1.f, 1.f);
+		gGL.color4f(0.f, 1.f, 1.f, 1.f);
 
 		target_global = mAutoPilotTargetGlobal;
 
@@ -4077,9 +4094,9 @@ void LLAgent::renderAutoPilotTarget()
 
 		height_meters = 1.f;
 
-		glScalef(height_meters, height_meters, height_meters);
+		gGL.scalef(height_meters, height_meters, height_meters);
 
-		gSphere.render(1500.f);
+		gSphere.render();
 
 		gGL.popMatrix();
 	}

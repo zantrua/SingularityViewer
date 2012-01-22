@@ -56,6 +56,7 @@
 #include "llvoavatar.h"
 #include "pipeline.h"
 #include "lluictrlfactory.h"
+#include "llviewershadermgr.h"
 #include "llviewertexturelist.h"
 #include "llstring.h"
 // <edit>
@@ -263,7 +264,7 @@ void LLFloaterImagePreview::draw()
 		
 		if (selected <= 0)
 		{
-			gl_rect_2d_checkerboard(mPreviewRect);
+			gl_rect_2d_checkerboard( getScreenRect(), mPreviewRect);
 			LLGLDisable gls_alpha(GL_ALPHA_TEST);
 
 			if(mImagep.notNull())
@@ -556,7 +557,7 @@ BOOL LLFloaterImagePreview::handleHover(S32 x, S32 y, MASK mask)
 			mSculptedPreview->refresh();
 		}
 
-		LLUI::setCursorPositionLocal(this, mLastMouseX, mLastMouseY);
+		LLUI::setMousePositionLocal(this, mLastMouseX, mLastMouseY);
 	}
 
 	if (!mPreviewRect.pointInRect(x, y) || !mAvatarPreview || !mSculptedPreview)
@@ -701,24 +702,31 @@ BOOL LLImagePreviewAvatar::render()
 	mNeedsUpdate = FALSE;
 	LLVOAvatar* avatarp = mDummyAvatar;
 
-	glMatrixMode(GL_PROJECTION);
-	gGL.pushMatrix();
-	glLoadIdentity();
-	glOrtho(0.0f, mFullWidth, 0.0f, mFullHeight, -1.0f, 1.0f);
 
-	glMatrixMode(GL_MODELVIEW);
+	gGL.matrixMode(LLRender::MM_PROJECTION);
 	gGL.pushMatrix();
-	glLoadIdentity();
+	gGL.loadIdentity();
+	gGL.ortho(0.0f, mFullWidth, 0.0f, mFullHeight, -1.0f, 1.0f);
+
+	gGL.matrixMode(LLRender::MM_MODELVIEW);
+	gGL.pushMatrix();
+	gGL.loadIdentity();
+	
 
 	LLGLSUIDefault def;
 	gGL.color4f(0.15f, 0.2f, 0.3f, 1.f);
 
+	if (LLGLSLShader::sNoFixedFunction)
+	{
+		gUIProgram.bind();
+	}
+
 	gl_rect_2d_simple( mFullWidth, mFullHeight );
 
-	glMatrixMode(GL_PROJECTION);
+	gGL.matrixMode(LLRender::MM_PROJECTION);
 	gGL.popMatrix();
 
-	glMatrixMode(GL_MODELVIEW);
+	gGL.matrixMode(LLRender::MM_MODELVIEW);
 	gGL.popMatrix();
 
 	gGL.flush();
@@ -750,7 +758,7 @@ BOOL LLImagePreviewAvatar::render()
 		LLGLDisable no_blend(GL_BLEND);
 
 		LLDrawPoolAvatar *avatarPoolp = (LLDrawPoolAvatar *)avatarp->mDrawable->getFace(0)->getPool();
-		
+		gPipeline.enableLightsPreview();
 		avatarPoolp->renderAvatars(avatarp);  // renders only one avatar
 	}
 
@@ -840,24 +848,34 @@ void LLImagePreviewSculpted::setPreviewTarget(LLImageRaw* imagep, F32 distance)
 	U32 num_indices = vf.mNumIndices;
 	U32 num_vertices = vf.mNumVertices;
 
-	mVertexBuffer = new LLVertexBuffer(LLVertexBuffer::MAP_VERTEX | LLVertexBuffer::MAP_NORMAL, 0);
+	mVertexBuffer = new LLVertexBuffer(LLVertexBuffer::MAP_VERTEX | LLVertexBuffer::MAP_NORMAL | LLVertexBuffer::MAP_TEXCOORD0, 0);
 	mVertexBuffer->allocateBuffer(num_vertices, num_indices, TRUE);
 
 	LLStrider<LLVector3> vertex_strider;
 	LLStrider<LLVector3> normal_strider;
+	LLStrider<LLVector2> tc_strider;
 	LLStrider<U16> index_strider;
 
 	mVertexBuffer->getVertexStrider(vertex_strider);
 	mVertexBuffer->getNormalStrider(normal_strider);
+	mVertexBuffer->getTexCoord0Strider(tc_strider);
 	mVertexBuffer->getIndexStrider(index_strider);
 
 	// build vertices and normals
-	for (U32 i = 0; (U32)i < num_vertices; i++)
+	LLStrider<LLVector3> pos;
+	pos = (LLVector3*) vf.mPositions; pos.setStride(16);
+	LLStrider<LLVector3> norm;
+	norm = (LLVector3*) vf.mNormals; norm.setStride(16);
+	LLStrider<LLVector2> tc;
+	tc = (LLVector2*) vf.mTexCoords; tc.setStride(8);
+
+	for (U32 i = 0; i < num_vertices; i++)
 	{
-		(vertex_strider++)->set(vf.mPositions[i].getF32ptr());
-		LLVector4a normal(vf.mNormals[i]);
-		normal.normalize3fast();
-		(normal_strider++)->set(normal.getF32ptr());
+		*(vertex_strider++) = *pos++;
+		LLVector3 normal = *norm++;
+		normal.normalize();
+		*(normal_strider++) = normal;
+		*(tc_strider++) = *tc++;
 	}
 
 	// build indices
@@ -880,23 +898,28 @@ BOOL LLImagePreviewSculpted::render()
 	LLGLEnable cull(GL_CULL_FACE);
 	LLGLDepthTest depth(GL_TRUE);
 
-	glMatrixMode(GL_PROJECTION);
+	gGL.matrixMode(LLRender::MM_PROJECTION);
 	gGL.pushMatrix();
-	glLoadIdentity();
-	glOrtho(0.0f, mFullWidth, 0.0f, mFullHeight, -1.0f, 1.0f);
+	gGL.loadIdentity();
+	gGL.ortho(0.0f, mFullWidth, 0.0f, mFullHeight, -1.0f, 1.0f);
 
-	glMatrixMode(GL_MODELVIEW);
+	gGL.matrixMode(LLRender::MM_MODELVIEW);
 	gGL.pushMatrix();
-	glLoadIdentity();
+	gGL.loadIdentity();
 		
 	gGL.color4f(0.15f, 0.2f, 0.3f, 1.f);
 
-	gl_rect_2d_simple( mFullWidth, mFullHeight );
+	if (LLGLSLShader::sNoFixedFunction)
+	{
+		gUIProgram.bind();
+	}
 
-	glMatrixMode(GL_PROJECTION);
+	gl_rect_2d_simple( mFullWidth, mFullHeight );
+	
+	gGL.matrixMode(LLRender::MM_PROJECTION);
 	gGL.popMatrix();
 
-	glMatrixMode(GL_MODELVIEW);
+	gGL.matrixMode(LLRender::MM_MODELVIEW);
 	gGL.popMatrix();
 
 	glClear(GL_DEPTH_BUFFER_BIT);
@@ -919,19 +942,30 @@ BOOL LLImagePreviewSculpted::render()
 	LLViewerCamera::getInstance()->setPerspective(FALSE, mOrigin.mX, mOrigin.mY, mFullWidth, mFullHeight, FALSE);
 
 	const LLVolumeFace &vf = mVolume->getVolumeFace(0);
-	U32 num_indices = (U32)vf.mNumIndices;
+	U32 num_indices = vf.mNumIndices;
 	
-	mVertexBuffer->setBuffer(LLVertexBuffer::MAP_VERTEX | LLVertexBuffer::MAP_NORMAL);
-
 	gPipeline.enableLightsAvatar();
+
+	if (LLGLSLShader::sNoFixedFunction)
+	{
+		gObjectPreviewProgram.bind();
+	}
 	gGL.pushMatrix();
 	const F32 SCALE = 1.25f;
 	gGL.scalef(SCALE, SCALE, SCALE);
 	const F32 BRIGHTNESS = 0.9f;
 	gGL.color3f(BRIGHTNESS, BRIGHTNESS, BRIGHTNESS);
+
+	mVertexBuffer->setBuffer(LLVertexBuffer::MAP_VERTEX | LLVertexBuffer::MAP_NORMAL | LLVertexBuffer::MAP_TEXCOORD0);
 	mVertexBuffer->draw(LLRender::TRIANGLES, num_indices, 0);
 
-	gGL.popMatrix();	
+	gGL.popMatrix();
+
+	if (LLGLSLShader::sNoFixedFunction)
+	{
+		gObjectPreviewProgram.unbind();
+	}
+
 	return TRUE;
 }
 

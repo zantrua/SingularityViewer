@@ -52,6 +52,7 @@
 #include "lltextbox.h"
 #include "lluictrl.h"
 #include "lluictrlfactory.h"
+#include "lluiimage.h"
 #include "llviewborder.h"
 #include "llbutton.h"
 #include "llnotificationsutil.h"
@@ -80,6 +81,7 @@ void LLPanel::init()
 
 	mPanelHandle.bind(this);
 	setTabStop(FALSE);
+	mVisibleSignal = NULL;
 }
 
 LLPanel::LLPanel()
@@ -123,6 +125,7 @@ LLPanel::LLPanel(const std::string& name, const std::string& rect_control, BOOL 
 LLPanel::~LLPanel()
 {
 	storeRectControl();
+	delete mVisibleSignal;
 }
 
 // virtual
@@ -362,6 +365,13 @@ BOOL LLPanel::checkRequirements()
 	}
 
 	return TRUE;
+}
+
+void LLPanel::handleVisibilityChange ( BOOL new_visibility )
+{
+	LLUICtrl::handleVisibilityChange ( new_visibility );
+	if (mVisibleSignal)
+		(*mVisibleSignal)(this, LLSD(new_visibility) ); // Pass BOOL as LLSD
 }
 
 void LLPanel::setFocus(BOOL b)
@@ -613,7 +623,7 @@ std::string LLPanel::getString(const std::string& name, const LLStringUtil::form
 		formatted_string.setArgList(args);
 		return formatted_string.getString();
 	}
-	std::string err_str("Failed to find string " + name + " in panel " + getName()); //*TODO: Translate
+	std::string err_str("Failed to find string " + name + " in panel " + getName()); // *TODO: Translate
 	// *TODO: once the QAR-369 ui-cleanup work on settings is in we need to change the following line to be
 	//if(LLUI::sConfigGroup->getBOOL("QAMode"))
 	if(LLUI::sQAMode)
@@ -634,7 +644,7 @@ std::string LLPanel::getString(const std::string& name) const
 	{
 		return found_it->second;
 	}
-	std::string err_str("Failed to find string " + name + " in panel " + getName()); //*TODO: Translate
+	std::string err_str("Failed to find string " + name + " in panel " + getName()); // *TODO: Translate
 	if(LLUI::sQAMode)
 	{
 		llerrs << err_str << llendl;
@@ -1007,6 +1017,16 @@ void LLPanel::childSetControlName(const std::string& id, const std::string& cont
 	{
 		view->setControlName(control_name, NULL);
 	}
+}
+
+boost::signals2::connection LLPanel::setVisibleCallback( const commit_signal_t::slot_type& cb )
+{
+	if (!mVisibleSignal)
+	{
+		mVisibleSignal = new commit_signal_t();
+	}
+
+	return mVisibleSignal->connect(cb);
 }
 
 //virtual

@@ -158,6 +158,9 @@ public:
 	// *NOTE:Mani Fix this for login abstraction!!
 	void handleLoginComplete();
 
+	void addOnIdleCallback(const boost::function<void()>& cb); // add a callback to fire (once) when idle
+
+	void purgeCache(); // Clear the local cache. 
 protected:
 	virtual bool initWindow(); // Initialize the viewer's window.
 	virtual bool initLogging(); // Initialize log files, logging system, return false on failure.
@@ -174,11 +177,12 @@ protected:
 
 private:
 
+	void initMaxHeapSize();
 	bool initThreads(); // Initialize viewer threads, return false on failure.
 	bool initConfiguration(); // Initialize settings from the command line/config file.
 
 	bool initCache(); // Initialize local client cache.
-	void purgeCache(); // Clear the local cache. 
+	void checkMemory() ;
 
 	// We have switched locations of both Mac and Windows cache, make sure
 	// files migrate and old cache is cleared out.
@@ -242,8 +246,7 @@ private:
 	LLUUID mAgentRegionLastID;
 
 
-	U32 mAvailPhysicalMemInKB ;
-	U32 mAvailVirtualMemInKB ;
+	LLFrameTimer mMemCheckTimer;
 	
 public:
 	//some information for updater
@@ -311,8 +314,6 @@ extern LLTimer gLogoutTimer;
 extern F32 gSimLastTime; 
 extern F32 gSimFrames;
 
-extern LLUUID gInventoryLibraryOwner;
-extern LLUUID gInventoryLibraryRoot;
 // <edit>
 extern LLUUID gSystemFolderRoot;
 extern LLUUID gSystemFolderSettings;

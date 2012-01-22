@@ -48,13 +48,18 @@
 #include "llviewerregion.h"
 #include "llcamera.h"
 #include "pipeline.h"
-#if MESH_ENABLED
 #include "llmeshrepository.h"
-#endif //MESH_ENABLED
 #include "llrender.h"
 #include "lloctree.h"
 #include "llvoavatar.h"
+<<<<<<< HEAD
 #include "lluuid.h"
+=======
+#include "llvoavatar.h"
+#include "llvolumemgr.h"
+#include "llglslshader.h"
+#include "llviewershadermgr.h"
+>>>>>>> a39bf619775fce29521a91e7671205334bab7687
 
 const F32 SG_OCCLUSION_FUDGE = 0.25f;
 #define SG_DISCARD_TOLERANCE 0.01f
@@ -220,7 +225,7 @@ typedef enum
 //contact Runitai Linden for a copy of the SL object used to write this table
 //basically, you give the table a bitmask of the look-at vector to a node and it
 //gives you a triangle fan index array
-static U8 sOcclusionIndices[] =
+static U16 sOcclusionIndices[] =
 {
 	 //000
 		b111, b110, b010, b011, b001, b101, b100, b110,
@@ -257,7 +262,7 @@ U8* get_box_fan_indices_ptr(LLCamera* camera, const LLVector4a& center)
 
 	S32 cypher = center.greaterThan(origin).getGatheredBits() & 0x7;
 	
-	return sOcclusionIndices+cypher*8;
+	return (U8*) (sOcclusionIndices+cypher*8);
 }
 						
 void LLSpatialGroup::buildOcclusion()
@@ -324,7 +329,8 @@ void LLSpatialGroup::buildOcclusion()
 	}
 	
 	{
-		mOcclusionVerts->setBuffer(0);
+		mOcclusionVerts->flush();
+		LLVertexBuffer::unbind();
 	}
 
 	clearState(LLSpatialGroup::OCCLUSION_DIRTY);
@@ -2354,7 +2360,7 @@ void pushVerts(LLFace* face, U32 mask)
 
 	LLVertexBuffer* buffer = face->getVertexBuffer();
 
-	if (buffer)
+	if (buffer && (face->getGeomCount() >= 3))
 	{
 		buffer->setBuffer(mask);
 		U16 start = face->getGeomStart();
@@ -2379,8 +2385,7 @@ void pushVerts(LLVolume* volume)
 	for (S32 i = 0; i < volume->getNumVolumeFaces(); ++i)
 	{
 		const LLVolumeFace& face = volume->getVolumeFace(i);
-		glVertexPointer(3, GL_FLOAT, 16, face.mPositions);
-		glDrawElements(GL_TRIANGLES, face.mNumIndices, GL_UNSIGNED_SHORT, face.mIndices);
+		LLVertexBuffer::drawElements(LLRender::TRIANGLES, face.mPositions, NULL, face.mNumIndices, face.mIndices);
 	}
 }
 
@@ -2389,7 +2394,7 @@ void pushBufferVerts(LLVertexBuffer* buffer, U32 mask)
 	if (buffer)
 	{
 		buffer->setBuffer(mask);
-		buffer->drawRange(LLRender::TRIANGLES, 0, buffer->getRequestedVerts()-1, buffer->getRequestedIndices(), 0);
+		buffer->drawRange(LLRender::TRIANGLES, 0, buffer->getNumVerts()-1, buffer->getNumIndices(), 0);
 	}
 }
 
@@ -2446,7 +2451,7 @@ void pushVertsColorCoded(LLSpatialGroup* group, U32 mask)
 		{
 			params = *j;
 			LLRenderPass::applyModelMatrix(*params);
-			glColor4f(colors[col].mV[0], colors[col].mV[1], colors[col].mV[2], 0.5f);
+			gGL.diffuseColor4f(colors[col].mV[0], colors[col].mV[1], colors[col].mV[2], 0.5f);
 			params->mVertexBuffer->setBuffer(mask);
 			params->mVertexBuffer->drawRange(params->mParticle ? LLRender::POINTS : LLRender::TRIANGLES,
 				params->mStart, params->mEnd, params->mCount, params->mOffset);
@@ -2480,7 +2485,7 @@ void renderOctree(LLSpatialGroup* group)
 			LLGLDepthTest gl_depth(FALSE, FALSE);
 			glPolygonMode(GL_FRONT_AND_BACK, GL_LINE);
 
-			gGL.color4f(1,0,0,group->mBuilt);
+			gGL.diffuseColor4f(1,0,0,group->mBuilt);
 			gGL.flush();
 			glLineWidth(5.f);
 			drawBoxOutline(group->mObjectBounds[0], group->mObjectBounds[1]);
@@ -2492,9 +2497,9 @@ void renderOctree(LLSpatialGroup* group)
 				LLDrawable* drawable = *i;
 				if (!group->mSpatialPartition->isBridge())
 				{
-					glPushMatrix();
+					gGL.pushMatrix();
 					LLVector3 trans = drawable->getRegion()->getOriginAgent();
-					glTranslatef(trans.mV[0], trans.mV[1], trans.mV[2]);
+					gGL.translatef(trans.mV[0], trans.mV[1], trans.mV[2]);
 				}
 				
 				for (S32 j = 0; j < drawable->getNumFaces(); j++)
@@ -2504,11 +2509,11 @@ void renderOctree(LLSpatialGroup* group)
 					{
 						if (gFrameTimeSeconds - face->mLastUpdateTime < 0.5f)
 						{
-							glColor4f(0, 1, 0, group->mBuilt);
+							gGL.diffuseColor4f(0, 1, 0, group->mBuilt);
 						}
 						else if (gFrameTimeSeconds - face->mLastMoveTime < 0.5f)
 						{
-							glColor4f(1, 0, 0, group->mBuilt);
+							gGL.diffuseColor4f(1, 0, 0, group->mBuilt);
 						}
 						else
 						{
@@ -2524,11 +2529,11 @@ void renderOctree(LLSpatialGroup* group)
 
 				if (!group->mSpatialPartition->isBridge())
 				{
-					glPopMatrix();
+					gGL.popMatrix();
 				}
 			}
 			glPolygonMode(GL_FRONT_AND_BACK, GL_FILL);
-			gGL.color4f(1,1,1,1);
+			gGL.diffuseColor4f(1,1,1,1);
 		}
 	}
 	else
@@ -2544,7 +2549,7 @@ void renderOctree(LLSpatialGroup* group)
 		}
 	}
 
-	gGL.color4fv(col.mV);
+	gGL.diffuseColor4fv(col.mV);
 	LLVector4a fudge;
 	fudge.splat(0.001f);
 	LLVector4a size = group->mObjectBounds[1];
@@ -2566,11 +2571,11 @@ void renderOctree(LLSpatialGroup* group)
 
 		if (group->mOctreeNode->isLeaf())
 		{
-			gGL.color4f(1,1,1,1);
+			gGL.diffuseColor4f(1,1,1,1);
 		}
 		else
 		{
-			gGL.color4f(0,1,1,1);
+			gGL.diffuseColor4f(0,1,1,1);
 		}
 						
 		drawBoxOutline(group->mBounds[0],group->mBounds[1]);
@@ -2579,7 +2584,7 @@ void renderOctree(LLSpatialGroup* group)
 		//draw bounding box for draw info
 		if (group->mSpatialPartition->mRenderByGroup)
 		{
-			gGL.color4f(1.0f, 0.75f, 0.25f, 0.6f);
+			gGL.diffuseColor4f(1.0f, 0.75f, 0.25f, 0.6f);
 			for (LLSpatialGroup::draw_map_t::iterator i = group->mDrawMap.begin(); i != group->mDrawMap.end(); ++i)
 			{
 				for (LLSpatialGroup::drawmap_elem_t::iterator j = i->second.begin(); j != i->second.end(); ++j)
@@ -2611,11 +2616,11 @@ void renderVisibility(LLSpatialGroup* group, LLCamera* camera)
 
 	BOOL render_objects = (!LLPipeline::sUseOcclusion || !group->isOcclusionState(LLSpatialGroup::OCCLUDED)) && group->isVisible() &&
 							!group->getData().empty();
+
 	if (render_objects)
 	{
 		LLGLDepthTest depth_under(GL_TRUE, GL_FALSE, GL_GREATER);
-		glColor4f(0, 0.5f, 0, 0.5f);
-		gGL.color4f(0, 0.5f, 0, 0.5f);
+		gGL.diffuseColor4f(0, 0.5f, 0, 0.5f);
 		pushBufferVerts(group, LLVertexBuffer::MAP_VERTEX);
 	}
 
@@ -2624,8 +2629,7 @@ void renderVisibility(LLSpatialGroup* group, LLCamera* camera)
 
 		if (render_objects)
 		{
-			glColor4f(0.f, 0.5f, 0.f,1.f);
-			gGL.color4f(0.f, 0.5f, 0.f, 1.f);
+			gGL.diffuseColor4f(0.f, 0.5f, 0.f,1.f);
 			pushBufferVerts(group, LLVertexBuffer::MAP_VERTEX);
 		}
 
@@ -2633,8 +2637,7 @@ void renderVisibility(LLSpatialGroup* group, LLCamera* camera)
 
 		if (render_objects)
 		{
-			glColor4f(0.f, 0.75f, 0.f,0.5f);
-			gGL.color4f(0.f, 0.75f, 0.f, 0.5f);
+			gGL.diffuseColor4f(0.f, 0.75f, 0.f,0.5f);
 			pushBufferVerts(group, LLVertexBuffer::MAP_VERTEX);
 		}
 		/*else if (camera && group->mOcclusionVerts)
@@ -2642,11 +2645,11 @@ void renderVisibility(LLSpatialGroup* group, LLCamera* camera)
 			LLVertexBuffer::unbind();
 			glVertexPointer(3, GL_FLOAT, 0, group->mOcclusionVerts);
 
-			glColor4f(1.0f, 0.f, 0.f, 0.5f);
+			gGL.diffuseColor4f(1.0f, 0.f, 0.f, 0.5f);
 			glDrawRangeElements(GL_TRIANGLE_FAN, 0, 7, 8, GL_UNSIGNED_BYTE, get_box_fan_indices(camera, group->mBounds[0]));
 			glPolygonMode(GL_FRONT_AND_BACK, GL_LINE);
 			
-			glColor4f(1.0f, 1.f, 1.f, 1.0f);
+			gGL.diffuseColor4f(1.0f, 1.f, 1.f, 1.0f);
 			glDrawRangeElements(GL_TRIANGLE_FAN, 0, 7, 8, GL_UNSIGNED_BYTE, get_box_fan_indices(camera, group->mBounds[0]));
 			glPolygonMode(GL_FRONT_AND_BACK, GL_FILL);
 		}*/
@@ -2655,7 +2658,7 @@ void renderVisibility(LLSpatialGroup* group, LLCamera* camera)
 
 void renderCrossHairs(LLVector3 position, F32 size, LLColor4 color)
 {
-	gGL.color4fv(color.mV);
+	gGL.diffuseColor4fv(color.mV);
 	gGL.begin(LLRender::LINES);
 	{
 		gGL.vertex3fv((position - LLVector3(size, 0.f, 0.f)).mV);
@@ -2679,23 +2682,23 @@ void renderUpdateType(LLDrawable* drawablep)
 	switch (vobj->getLastUpdateType())
 	{
 	case OUT_FULL:
-		glColor4f(0,1,0,0.5f);
+		gGL.diffuseColor4f(0,1,0,0.5f);
 		break;
 	case OUT_TERSE_IMPROVED:
-		glColor4f(0,1,1,0.5f);
+		gGL.diffuseColor4f(0,1,1,0.5f);
 		break;
 	case OUT_FULL_COMPRESSED:
 		if (vobj->getLastUpdateCached())
 		{
-			glColor4f(1,0,0,0.5f);
+			gGL.diffuseColor4f(1,0,0,0.5f);
 		}
 		else
 		{
-			glColor4f(1,1,0,0.5f);
+			gGL.diffuseColor4f(1,1,0,0.5f);
 		}
 		break;
 	case OUT_FULL_CACHED:
-		glColor4f(0,0,1,0.5f);
+		gGL.diffuseColor4f(0,0,1,0.5f);
 		break;
 	default:
 		llwarns << "Unknown update_type " << vobj->getLastUpdateType() << llendl;
@@ -2718,17 +2721,17 @@ void renderBoundingBox(LLDrawable* drawable, BOOL set_color = TRUE)
 	{
 		if (drawable->isSpatialBridge())
 		{
-			gGL.color4f(1,0.5f,0,1);
+			gGL.diffuseColor4f(1,0.5f,0,1);
 		}
 		else if (drawable->getVOVolume())
 		{
 			if (drawable->isRoot())
 			{
-				gGL.color4f(1,1,0,1);
+				gGL.diffuseColor4f(1,1,0,1);
 			}
 			else
 			{
-				gGL.color4f(0,1,0,1);
+				gGL.diffuseColor4f(0,1,0,1);
 			}
 		}
 		else if (drawable->getVObj())
@@ -2736,30 +2739,30 @@ void renderBoundingBox(LLDrawable* drawable, BOOL set_color = TRUE)
 			switch (drawable->getVObj()->getPCode())
 			{
 				case LLViewerObject::LL_VO_SURFACE_PATCH:
-						gGL.color4f(0,1,1,1);
+						gGL.diffuseColor4f(0,1,1,1);
 						break;
 				case LLViewerObject::LL_VO_CLOUDS:
-						gGL.color4f(0.5f,0.5f,0.5f,1.0f);
+						gGL.diffuseColor4f(0.5f,0.5f,0.5f,1.0f);
 						break;
 				case LLViewerObject::LL_VO_PART_GROUP:
 				case LLViewerObject::LL_VO_HUD_PART_GROUP:
-						gGL.color4f(0,0,1,1);
+						gGL.diffuseColor4f(0,0,1,1);
 						break;
 				case LLViewerObject::LL_VO_VOID_WATER:
 				case LLViewerObject::LL_VO_WATER:
-						gGL.color4f(0,0.5f,1,1);
+						gGL.diffuseColor4f(0,0.5f,1,1);
 						break;
 				case LL_PCODE_LEGACY_TREE:
-						gGL.color4f(0,0.5f,0,1);
+						gGL.diffuseColor4f(0,0.5f,0,1);
 						break;
 				default:
-						gGL.color4f(1,0,1,1);
+						gGL.diffuseColor4f(1,0,1,1);
 						break;
 			}
 		}
 		else 
 		{
-			gGL.color4f(1,0,0,1);
+			gGL.diffuseColor4f(1,0,0,1);
 		}
 	}
 
@@ -2836,7 +2839,7 @@ void renderTexturePriority(LLDrawable* drawable)
 			F32 t = vsize/sLastMaxTexPriority;
 			
 			LLVector4 col = lerp(cold, hot, t);
-			gGL.color4fv(col.mV);
+			gGL.diffuseColor4fv(col.mV);
 		}
 		//else
 		//{
@@ -2872,7 +2875,7 @@ void renderPoints(LLDrawable* drawablep)
 	if (drawablep->getNumFaces())
 	{
 		gGL.begin(LLRender::POINTS);
-		gGL.color3f(1,1,1);
+		gGL.diffuseColor3f(1,1,1);
 		for (S32 i = 0; i < drawablep->getNumFaces(); i++)
 		{
 			gGL.vertex3fv(drawablep->getFace(i)->mCenterLocal.mV);
@@ -2889,7 +2892,7 @@ void renderTextureAnim(LLDrawInfo* params)
 	}
 	
 	LLGLEnable blend(GL_BLEND);
-	glColor4f(1,1,0,0.5f);
+	gGL.diffuseColor4f(1,1,0,0.5f);
 	pushVerts(params, LLVertexBuffer::MAP_VERTEX);
 }
 
@@ -2897,7 +2900,7 @@ void renderBatchSize(LLDrawInfo* params)
 {
 	LLGLEnable offset(GL_POLYGON_OFFSET_FILL);
 	glPolygonOffset(-1.f, 1.f);
-	glColor3ubv((GLubyte*) &(params->mDebugColor));
+	gGL.diffuseColor4ubv((GLubyte*) &(params->mDebugColor));
 	pushVerts(params, LLVertexBuffer::MAP_VERTEX);
 }
 
@@ -2911,7 +2914,7 @@ void renderLights(LLDrawable* drawablep)
 	if (drawablep->getNumFaces())
 	{
 		LLGLEnable blend(GL_BLEND);
-		glColor4f(0,1,1,0.5f);
+		gGL.diffuseColor4f(0,1,1,0.5f);
 
 		for (S32 i = 0; i < drawablep->getNumFaces(); i++)
 		{
@@ -2929,60 +2932,198 @@ void renderLights(LLDrawable* drawablep)
 
 		{
 			LLGLDepthTest depth(GL_FALSE, GL_TRUE);
-			gGL.color4f(1,1,1,1);
+			gGL.diffuseColor4f(1,1,1,1);
 			drawBoxOutline(pos, size);
 		}
 
-		gGL.color4f(1,1,0,1);
+		gGL.diffuseColor4f(1,1,0,1);
 		F32 rad = drawablep->getVOVolume()->getLightRadius();
 		drawBoxOutline(pos, LLVector4a(rad));
 	}
 }
 
+class LLRenderOctreeRaycast : public LLOctreeTriangleRayIntersect
+{
+public:
+	
+	
+	LLRenderOctreeRaycast(const LLVector4a& start, const LLVector4a& dir, F32* closest_t)
+		: LLOctreeTriangleRayIntersect(start, dir, NULL, closest_t, NULL, NULL, NULL, NULL)
+	{
+
+	}
+
+	void visit(const LLOctreeNode<LLVolumeTriangle>* branch)
+	{
+		LLVolumeOctreeListener* vl = (LLVolumeOctreeListener*) branch->getListener(0);
+
+		LLVector3 center, size;
+		
+		if (branch->getData().empty())
+		{
+			gGL.diffuseColor3f(1.f,0.2f,0.f);
+			center.set(branch->getCenter().getF32ptr());
+			size.set(branch->getSize().getF32ptr());
+		}
+		else
+		{
+			gGL.diffuseColor3f(0.75f, 1.f, 0.f);
+			center.set(vl->mBounds[0].getF32ptr());
+			size.set(vl->mBounds[1].getF32ptr());
+		}
+
+		drawBoxOutline(center, size);	
+		
+		for (U32 i = 0; i < 2; i++)
+		{
+			LLGLDepthTest depth(GL_TRUE, GL_FALSE, i == 1 ? GL_LEQUAL : GL_GREATER);
+
+			if (i == 1)
+			{
+				gGL.diffuseColor4f(0,1,1,0.5f);
+			}
+			else
+			{
+				gGL.diffuseColor4f(0,0.5f,0.5f, 0.25f);
+				drawBoxOutline(center, size);
+			}
+			
+			if (i == 1)
+			{
+				gGL.flush();
+				glLineWidth(3.f);
+			}
+
+			gGL.begin(LLRender::TRIANGLES);
+			for (LLOctreeNode<LLVolumeTriangle>::const_element_iter iter = branch->getData().begin();
+					iter != branch->getData().end();
+					++iter)
+			{
+				const LLVolumeTriangle* tri = *iter;
+				
+				gGL.vertex3fv(tri->mV[0]->getF32ptr());
+				gGL.vertex3fv(tri->mV[1]->getF32ptr());
+				gGL.vertex3fv(tri->mV[2]->getF32ptr());
+			}	
+			gGL.end();
+
+			if (i == 1)
+			{
+				gGL.flush();
+				glLineWidth(1.f);
+			}
+		}
+	}
+};
 
 void renderRaycast(LLDrawable* drawablep)
 {
-	if (drawablep->getVObj() != gDebugRaycastObject)
-	{
-		return;
-	}
-	
 	if (drawablep->getNumFaces())
 	{
 		LLGLEnable blend(GL_BLEND);
-		gGL.color4f(0,1,1,0.5f);
+		gGL.diffuseColor4f(0,1,1,0.5f);
 
-		if (drawablep->getVOVolume() && gDebugRaycastFaceHit != -1)
+		if (drawablep->getVOVolume())
 		{
-			glPolygonMode(GL_FRONT_AND_BACK, GL_LINE);
-			pushVerts(drawablep->getFace(gDebugRaycastFaceHit), LLVertexBuffer::MAP_VERTEX);
-			glPolygonMode(GL_FRONT_AND_BACK, GL_FILL);
+			//glPolygonMode(GL_FRONT_AND_BACK, GL_LINE);
+			//pushVerts(drawablep->getFace(gDebugRaycastFaceHit), LLVertexBuffer::MAP_VERTEX);
+			//glPolygonMode(GL_FRONT_AND_BACK, GL_FILL);
+
+			LLVOVolume* vobj = drawablep->getVOVolume();
+			LLVolume* volume = vobj->getVolume();
+
+			bool transform = true;
+			if (drawablep->isState(LLDrawable::RIGGED))
+			{
+				volume = vobj->getRiggedVolume();
+				transform = false;
+			}
+
+			if (volume)
+			{
+				LLVector3 trans = drawablep->getRegion()->getOriginAgent();
+				
+				for (S32 i = 0; i < volume->getNumVolumeFaces(); ++i)
+				{
+					const LLVolumeFace& face = volume->getVolumeFace(i);
+					if (!face.mOctree)
+					{
+						((LLVolumeFace*) &face)->createOctree(); 
+					}
+
+					gGL.pushMatrix();
+					gGL.translatef(trans.mV[0], trans.mV[1], trans.mV[2]);					
+					gGL.multMatrix((F32*) vobj->getRelativeXform().mMatrix);
+
+					LLVector3 start, end;
+					if (transform)
+					{
+						start = vobj->agentPositionToVolume(gDebugRaycastStart);
+						end = vobj->agentPositionToVolume(gDebugRaycastEnd);
+					}
+					else
+					{
+						start = gDebugRaycastStart;
+						end = gDebugRaycastEnd;
+					}
+
+					LLVector4a starta, enda;
+					starta.load3(start.mV);
+					enda.load3(end.mV);
+					LLVector4a dir;
+					dir.setSub(enda, starta);
+
+					F32 t = 1.f;
+
+					LLRenderOctreeRaycast render(starta, dir, &t);
+					gGL.flush();
+					glPolygonMode(GL_FRONT_AND_BACK, GL_LINE);				
+
+					{
+						//render face positions
+						LLVertexBuffer::unbind();
+						gGL.diffuseColor4f(0,1,1,0.5f);
+						glVertexPointer(3, GL_FLOAT, sizeof(LLVector4a), face.mPositions);
+						gGL.syncMatrices();
+						glDrawElements(GL_TRIANGLES, face.mNumIndices, GL_UNSIGNED_SHORT, face.mIndices);
+					}
+						
+					render.traverse(face.mOctree);
+					gGL.popMatrix();		
+					glPolygonMode(GL_FRONT_AND_BACK, GL_FILL);
+				}
+			}
 		}
 		else if (drawablep->isAvatar())
 		{
-			LLGLDepthTest depth(GL_FALSE);
-			LLVOAvatar* av = (LLVOAvatar*) drawablep->getVObj().get();
-			av->renderCollisionVolumes();
+			if (drawablep->getVObj() == gDebugRaycastObject)
+			{
+				LLGLDepthTest depth(GL_FALSE);
+				LLVOAvatar* av = (LLVOAvatar*) drawablep->getVObj().get();
+				av->renderCollisionVolumes();
+			}
 		}
 
-		// draw intersection point
-		glPushMatrix();
-		glLoadMatrixd(gGLModelView);
-		LLVector3 translate = gDebugRaycastIntersection;
-		glTranslatef(translate.mV[0], translate.mV[1], translate.mV[2]);
-		LLCoordFrame orient;
-		orient.lookDir(gDebugRaycastNormal, gDebugRaycastBinormal);
-		LLMatrix4 rotation;
-		orient.getRotMatrixToParent(rotation);
-		glMultMatrixf((float*)rotation.mMatrix);
-		
-		gGL.color4f(1,0,0,0.5f);
-		drawBox(LLVector3(0, 0, 0), LLVector3(0.1f, 0.022f, 0.022f));
-		gGL.color4f(0,1,0,0.5f);
-		drawBox(LLVector3(0, 0, 0), LLVector3(0.021f, 0.1f, 0.021f));
-		gGL.color4f(0,0,1,0.5f);
-		drawBox(LLVector3(0, 0, 0), LLVector3(0.02f, 0.02f, 0.1f));
-		glPopMatrix();
+		if (drawablep->getVObj() == gDebugRaycastObject)
+		{
+			// draw intersection point
+			gGL.pushMatrix();
+			gGL.loadMatrix(gGLModelView);
+			LLVector3 translate = gDebugRaycastIntersection;
+			gGL.translatef(translate.mV[0], translate.mV[1], translate.mV[2]);
+			LLCoordFrame orient;
+			orient.lookDir(gDebugRaycastNormal, gDebugRaycastBinormal);
+			LLMatrix4 rotation;
+			orient.getRotMatrixToParent(rotation);
+			gGL.multMatrix((float*)rotation.mMatrix);
+			
+			gGL.diffuseColor4f(1,0,0,0.5f);
+			drawBox(LLVector3(0, 0, 0), LLVector3(0.1f, 0.022f, 0.022f));
+			gGL.diffuseColor4f(0,1,0,0.5f);
+			drawBox(LLVector3(0, 0, 0), LLVector3(0.021f, 0.1f, 0.021f));
+			gGL.diffuseColor4f(0,0,1,0.5f);
+			drawBox(LLVector3(0, 0, 0), LLVector3(0.02f, 0.02f, 0.1f));
+			gGL.popMatrix();
 
 			// draw bounding box of prim
 			const LLVector4a* ext = drawablep->getSpatialExtents();
@@ -2994,10 +3135,10 @@ void renderRaycast(LLDrawable* drawablep)
 			size.setSub(ext[1], ext[0]);
 			size.mul(0.5f);
 
-		LLGLDepthTest depth(GL_FALSE, GL_TRUE);
-		gGL.color4f(0,0.5f,0.5f,1);
-		drawBoxOutline(pos, size);
-
+			LLGLDepthTest depth(GL_FALSE, GL_TRUE);
+			gGL.diffuseColor4f(0,0.5f,0.5f,1);
+			drawBoxOutline(pos, size);		
+		}
 	}
 }
 
@@ -3052,14 +3193,14 @@ public:
 				group->rebuildMesh();
 
 				gGL.flush();
-				glPushMatrix();
+				gGL.pushMatrix();
 				gGLLastMatrix = NULL;
-				glLoadMatrixd(gGLModelView);
+				gGL.loadMatrix(gGLModelView);
 				renderVisibility(group, mCamera);
 				stop_glerror();
 				gGLLastMatrix = NULL;
-				glPopMatrix();
-				gGL.color4f(1,1,1,1);
+				gGL.popMatrix();
+				gGL.diffuseColor4f(1,1,1,1);
 			}
 		}
 	}
@@ -3083,7 +3224,7 @@ public:
 		{
 			if (!group->getData().empty())
 			{
-				gGL.color3f(0,0,1);
+				gGL.diffuseColor3f(0,0,1);
 				drawBoxOutline(group->mObjectBounds[0],
 								group->mObjectBounds[1]);
 			}
@@ -3102,7 +3243,7 @@ public:
 			{
 				if (drawable->isState(LLDrawable::IN_REBUILD_Q2))
 				{
-					gGL.color4f(0.6f, 0.6f, 0.1f, 1.f);
+					gGL.diffuseColor4f(0.6f, 0.6f, 0.1f, 1.f);
 					const LLVector4a* ext = drawable->getSpatialExtents();
 					LLVector4a center;
 					center.setAdd(ext[0], ext[1]);
@@ -3319,6 +3460,11 @@ void LLSpatialPartition::renderDebug()
 		return;
 	}
 	
+	if (LLGLSLShader::sNoFixedFunction)
+	{
+		gDebugProgram.bind();
+	}
+
 	if (gPipeline.hasRenderDebugMask(LLPipeline::RENDER_DEBUG_TEXTURE_PRIORITY))
 	{
 		//sLastMaxTexPriority = lerp(sLastMaxTexPriority, sCurMaxTexPriority, gFrameIntervalSeconds);
@@ -3347,11 +3493,16 @@ void LLSpatialPartition::renderDebug()
 
 	LLOctreeRenderNonOccluded render_debug(camera);
 	render_debug.traverse(mOctree);
+
+	if (LLGLSLShader::sNoFixedFunction)
+	{
+		gDebugProgram.unbind();
+	}
 }
 
 void LLSpatialGroup::drawObjectBox(LLColor4 col)
 {
-	gGL.color4fv(col.mV);
+	gGL.diffuseColor4fv(col.mV);
 	LLVector4a size;
 	size = mObjectBounds[1];
 	size.mul(1.01f);
@@ -3456,7 +3607,7 @@ public:
 		LLVector3 local_start = mStart;
 		LLVector3 local_end = mEnd;
 
-		if (!gPipeline.hasRenderType(drawable->getRenderType()) || !drawable->isVisible())
+		if (!drawable || !gPipeline.hasRenderType(drawable->getRenderType()) || !drawable->isVisible())
 		{
 			return false;
 		}
@@ -3478,7 +3629,6 @@ public:
 			{
 				LLVector3 intersection;
 				bool skip_check = false;
-#if MESH_ENABLED
 				if (vobj->isAvatar())
 				{
 					LLVOAvatar* avatar = (LLVOAvatar*) vobj;
@@ -3499,7 +3649,6 @@ public:
 
 					}
 				}
-#endif //MESH_ENABLED
 
 				if (!skip_check && vobj->lineSegmentIntersect(mStart, mEnd, -1, mPickTransparent, mFaceHit, &intersection, mTexCoord, mNormal, mBinormal))
 				{
@@ -3553,7 +3702,8 @@ LLDrawInfo::LLDrawInfo(U16 start, U16 end, U32 count, U32 offset,
 	mVSize(0.f),
 	mGroup(NULL),
 	mFace(NULL),
-	mDistance(0.f)
+	mDistance(0.f),
+	mDrawMode(LLRender::TRIANGLES)
 {
 	mVertexBuffer->validateRange(mStart, mEnd, mCount, mOffset);
 

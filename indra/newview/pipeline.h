@@ -71,7 +71,7 @@ BOOL compute_min_max(LLMatrix4& box, LLVector2& min, LLVector2& max); // Shouldn
 bool LLRayAABB(const LLVector3 &center, const LLVector3 &size, const LLVector3& origin, const LLVector3& dir, LLVector3 &coord, F32 epsilon = 0);
 BOOL setup_hud_matrices(); // use whole screen to render hud
 BOOL setup_hud_matrices(const LLRect& screen_region); // specify portion of screen (in pixels) to render hud attachments from (for picking)
-glh::matrix4f glh_copy_matrix(GLdouble* src);
+glh::matrix4f glh_copy_matrix(F32* src);
 glh::matrix4f glh_get_current_modelview();
 void glh_set_current_modelview(const glh::matrix4f& mat);
 glh::matrix4f glh_get_current_projection();
@@ -98,8 +98,6 @@ public:
 	bool allocateScreenBuffer(U32 resX, U32 resY, U32 samples);
 
 	void resetVertexBuffers(LLDrawable* drawable);
-	void setUseVBO(BOOL use_vbo);
-	void setDisableVBOMapping(BOOL no_vbo_mapping);
 	void generateImpostor(LLVOAvatar* avatar);
 	void bindScreenToTexture();
 	void renderBloom(BOOL for_snapshot, F32 zoom_factor = 1.f, int subfield = 0, bool tiling = false);
@@ -178,6 +176,7 @@ public:
 	BOOL		canUseVertexShaders();
 	BOOL		canUseWindLightShaders() const;
 	BOOL		canUseWindLightShadersOnObjects() const;
+	BOOL		canUseAntiAliasing() const;
 
 	// phases
 	void resetFrameStats();
@@ -209,7 +208,7 @@ public:
 	void postSort(LLCamera& camera);
 	void forAllVisibleDrawables(void (*func)(LLDrawable*));
 
-	void renderObjects(U32 type, U32 mask, BOOL texture = TRUE);
+	void renderObjects(U32 type, U32 mask, BOOL texture = TRUE, BOOL batch_texture = FALSE);
 	void renderGroups(LLRenderPass* pass, U32 type, U32 mask, BOOL texture);
 
 	void grabReferences(LLCullResult& result);
@@ -221,11 +220,12 @@ public:
 	void checkReferences(LLDrawInfo* draw_info);
 	void checkReferences(LLSpatialGroup* group);
 
+
 	void renderGeom(LLCamera& camera, BOOL forceVBOUpdate = FALSE);
 	void renderGeomDeferred(LLCamera& camera);
 	void renderGeomPostDeferred(LLCamera& camera);
 	void renderGeomShadow(LLCamera& camera);
-	void bindDeferredShader(LLGLSLShader& shader, U32 light_index = 0, LLRenderTarget* gi_source = NULL, LLRenderTarget* last_gi_post = NULL, U32 noise_map = 0xFFFFFFFF);
+	void bindDeferredShader(LLGLSLShader& shader, U32 light_index = 0, U32 noise_map = 0xFFFFFFFF);
 	void setupSpotLight(LLGLSLShader& shader, LLDrawable* drawablep);
 
 	void unbindDeferredShader(LLGLSLShader& shader);
@@ -236,7 +236,6 @@ public:
 
 
 	void renderShadow(glh::matrix4f& view, glh::matrix4f& proj, LLCamera& camera, LLCullResult& result, BOOL use_shader = TRUE, BOOL use_occlusion = TRUE);
-	void generateGI(LLCamera& camera, LLVector3& lightDir, std::vector<LLVector3>& vpc);
 	void renderHighlights();
 	void renderDebug();
 
@@ -255,6 +254,7 @@ public:
 	void enableLightsStatic();
 	void enableLightsDynamic();
 	void enableLightsAvatar();
+	void enableLightsPreview();
 	void enableLightsAvatarEdit(const LLColor4& color);
 	void enableLightsFullbright(const LLColor4& color);
 	void disableLights();
@@ -269,7 +269,8 @@ public:
 	LLCullResult::sg_list_t::iterator beginAlphaGroups();
 	LLCullResult::sg_list_t::iterator endAlphaGroups();
 	
-	void addTrianglesDrawn(S32 count);
+
+	void addTrianglesDrawn(S32 index_count, U32 render_type = LLRender::TRIANGLES);
 
 	BOOL hasRenderDebugFeatureMask(const U32 mask) const	{ return (mRenderDebugFeatureMask & mask) ? TRUE : FALSE; }
 	BOOL hasRenderDebugMask(const U32 mask) const			{ return (mRenderDebugMask & mask) ? TRUE : FALSE; }
@@ -329,6 +330,9 @@ public:
 	static BOOL getRenderHighlights(void* data);
 
 	static void updateRenderDeferred();
+	static void refreshCachedSettings();
+
+	static void throttleNewMemoryAllocation(BOOL disable);
 
 private:
 	void unloadShaders();
@@ -372,7 +376,6 @@ public:
 		RENDER_TYPE_PASS_ALPHA					= LLRenderPass::PASS_ALPHA,
 		RENDER_TYPE_PASS_ALPHA_MASK				= LLRenderPass::PASS_ALPHA_MASK,
 		RENDER_TYPE_PASS_FULLBRIGHT_ALPHA_MASK	= LLRenderPass::PASS_FULLBRIGHT_ALPHA_MASK,
-		RENDER_TYPE_PASS_ALPHA_SHADOW = LLRenderPass::PASS_ALPHA_SHADOW,
 		// Following are object types (only used in drawable mRenderType)
 		RENDER_TYPE_HUD = LLRenderPass::NUM_RENDER_TYPES,
 		RENDER_TYPE_VOLUME,
@@ -403,7 +406,7 @@ public:
 		RENDER_DEBUG_VERIFY				= 0x0000002,
 		RENDER_DEBUG_BBOXES				= 0x0000004,
 		RENDER_DEBUG_OCTREE				= 0x0000008,
-		RENDER_DEBUG_PICKING			= 0x0000010,
+		RENDER_DEBUG_WIND_VECTORS		= 0x0000010,
 		RENDER_DEBUG_OCCLUSION			= 0x0000020,
 		RENDER_DEBUG_POINTS				= 0x0000040,
 		RENDER_DEBUG_TEXTURE_PRIORITY	= 0x0000080,
@@ -457,9 +460,12 @@ public:
 	static BOOL				sForceOldBakedUpload; // If true will not use capabilities to upload baked textures.
 	static S32				sUseOcclusion;  // 0 = no occlusion, 1 = read only, 2 = read/write
 	static BOOL				sDelayVBUpdate;
-	static BOOL				sFastAlpha;
+	static BOOL				sAutoMaskAlphaDeferred;
+	static BOOL				sAutoMaskAlphaNonDeferred;
 	static BOOL				sDisableShaders; // if TRUE, rendering will be done without shaders
 	static BOOL				sRenderBump;
+	static BOOL				sBakeSunlight;
+	static BOOL				sNoAlpha;
 	static BOOL				sUseFBO;
 	static BOOL				sUseFarClip;
 	static BOOL				sShadowRender;
@@ -476,6 +482,7 @@ public:
 	static BOOL				sRenderAttachedLights;
 	static BOOL				sRenderAttachedParticles;
 	static BOOL				sRenderDeferred;
+	static BOOL             sMemAllocationThrottled;
 	static S32				sVisibleLightCount;
 	static F32				sMinRenderSize;
 
@@ -483,13 +490,14 @@ public:
 
 	LLRenderTarget			mScreen;
 	LLRenderTarget			mDeferredScreen;
+	LLRenderTarget			mFXAABuffer;
 	LLRenderTarget			mEdgeMap;
 	LLRenderTarget			mDeferredDepth;
-	LLRenderTarget			mDeferredLight[3];
+	LLRenderTarget			mDeferredLight;
 	LLMultisampleBuffer		mSampleBuffer;
-	LLRenderTarget			mGIMap;
-	LLRenderTarget			mGIMapPost[2];
-	LLRenderTarget			mLuminanceMap;
+
+	//utility buffer for rendering post effects, gets abused by renderDeferredLighting
+	LLPointer<LLVertexBuffer> mDeferredVB;
 
 	//sun shadow map
 	LLRenderTarget			mShadow[6];
@@ -536,6 +544,7 @@ public:
 
 	LLColor4				mSunDiffuse;
 	LLVector3				mSunDir;
+	LLVector3				mTransformedSunDir;
 
 	BOOL					mInitialized;
 	BOOL					mVertexShadersEnabled;

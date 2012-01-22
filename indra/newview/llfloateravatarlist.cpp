@@ -878,15 +878,12 @@ void LLFloaterAvatarList::onClickIM(void* userdata)
 			// Single avatar
 			LLUUID agent_id = ids[0];
 
-			char buffer[MAX_STRING];
 			// [Ansariel: Display name support]
-			// snprintf(buffer, MAX_STRING, "%s", avlist->mAvatars[agent_id].getName().c_str());
 			LLAvatarName avatar_name;
 			if (LLAvatarNameCache::get(agent_id, &avatar_name))
 			{
-				snprintf(buffer, MAX_STRING, "%s", avatar_name.getLegacyName().c_str());
 				gIMMgr->setFloaterOpen(TRUE);
-				gIMMgr->addSession(buffer,IM_NOTHING_SPECIAL,agent_id);
+				gIMMgr->addSession(LLCacheName::cleanFullName(avatar_name.getLegacyName()),IM_NOTHING_SPECIAL,agent_id);
 			}
 			// [Ansariel: Display name support]
 		}
@@ -1044,7 +1041,7 @@ void LLFloaterAvatarList::focusOnCurrent()
 		{
 			removeFocusFromAll();
 			entry->setFocus(TRUE);
-			gAgentCamera.lookAtObject(mFocusedAvatar, CAMERA_POSITION_OBJECT);
+			gAgentCamera.lookAtObject(mFocusedAvatar, false);
 			return;
 		}
 	}
@@ -1084,7 +1081,7 @@ void LLFloaterAvatarList::focusOnPrev(BOOL marked_only)
 		removeFocusFromAll();
 		prev->setFocus(TRUE);
 		mFocusedAvatar = prev->getID();
-		gAgentCamera.lookAtObject(mFocusedAvatar, CAMERA_POSITION_OBJECT);
+		gAgentCamera.lookAtObject(mFocusedAvatar, false);
 	}
 }
 
@@ -1129,7 +1126,7 @@ void LLFloaterAvatarList::focusOnNext(BOOL marked_only)
 		removeFocusFromAll();
 		next->setFocus(TRUE);
 		mFocusedAvatar = next->getID();
-		gAgentCamera.lookAtObject(mFocusedAvatar, CAMERA_POSITION_OBJECT);
+		gAgentCamera.lookAtObject(mFocusedAvatar, false);
 	}
 }
 

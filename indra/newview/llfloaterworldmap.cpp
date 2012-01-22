@@ -70,6 +70,7 @@
 #include "llappviewer.h"
 #include "llmapimagetype.h"
 #include "llweb.h"
+#include "llinventoryfunctions.h"
 
 #include "llglheaders.h"
 
@@ -651,10 +652,11 @@ void LLFloaterWorldMap::trackLocation(const LLVector3d& pos_global)
 		return;
 	}
 
-	std::string sim_name;
-	LLWorldMap::getInstance()->simNameFromPosGlobal( pos_global, sim_name );
-	F32 region_x = (F32)fmod( pos_global.mdV[VX], (F64)REGION_WIDTH_METERS );
-	F32 region_y = (F32)fmod( pos_global.mdV[VY], (F64)REGION_WIDTH_METERS );
+	std::string sim_name = sim_info->getName();
+	U32 locX, locY;
+	from_region_handle(sim_info->getHandle(), &locX, &locY);
+	F32 region_x = pos_global.mdV[VX] - locX;
+	F32 region_y = pos_global.mdV[VY] - locY;
 	std::string full_name = llformat("%s (%d, %d, %d)", 
 //								  sim_name.c_str(), 
 // [RLVa:KB] - Alternate: Snowglobe-1.2.4 | Checked: 2009-07-04 (RLVa-1.0.0a)
@@ -928,7 +930,7 @@ void LLFloaterWorldMap::buildLandmarkIDLists()
 	LLInventoryModel::cat_array_t cats;
 	LLInventoryModel::item_array_t items;
 	LLIsType is_landmark(LLAssetType::AT_LANDMARK);
-	gInventory.collectDescendentsIf(gAgent.getInventoryRootID(),
+	gInventory.collectDescendentsIf(gInventory.getRootFolderID(),
 									cats,
 									items,
 									LLInventoryModel::EXCLUDE_TRASH,

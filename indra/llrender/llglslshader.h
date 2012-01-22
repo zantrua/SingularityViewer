@@ -42,15 +42,14 @@ public:
 	bool calculatesLighting;
 	bool calculatesAtmospherics;
 	bool hasLighting; // implies no transport (it's possible to have neither though)
+	bool isAlphaLighting; // indicates lighting shaders need not be linked in (lighting performed directly in alpha shader to match deferred lighting functions
 	bool isShiny;
 	bool isFullbright; // implies no lighting
 	bool isSpecular;
 	bool hasWaterFog; // implies no gamma
 	bool hasTransport; // implies no lighting (it's possible to have neither though)
 	bool hasSkinning;	
-#if MESH_ENABLED
 	bool hasObjectSkinning;
-#endif //MESH_ENABLED
 	bool hasAtmospherics;
 	bool hasGamma;
 	S32 mIndexedTextureChannels;
@@ -77,6 +76,7 @@ public:
 
 	static GLhandleARB sCurBoundShader;
 	static LLGLSLShader* sCurBoundShaderPtr;
+	static S32 sIndexedTextureChannels;
 	static bool sNoFixedFunction;
 
 	void unload();
@@ -115,16 +115,17 @@ public:
 	void uniformMatrix3fv(const std::string& uniform, U32 count, GLboolean transpose, const GLfloat *v);
 	void uniformMatrix4fv(const std::string& uniform, U32 count, GLboolean transpose, const GLfloat *v);
 
-	void setAlphaRange(F32 minimum, F32 maximum);
+	void setMinimumAlpha(F32 minimum);
 
 	void vertexAttrib4f(U32 index, GLfloat x, GLfloat y, GLfloat z, GLfloat w);
 	void vertexAttrib4fv(U32 index, GLfloat* v);
 	
 	GLint getUniformLocation(const std::string& uniform);
+	GLint getUniformLocation(U32 index);
+
 	GLint getAttribLocation(U32 attrib);
 	GLint mapUniformTextureChannel(GLint location, GLenum type);
 	
-
 	//enable/disable texture channel for specified uniform
 	//if given texture uniform is active in the shader, 
 	//the corresponding channel will be active upon return
@@ -138,6 +139,9 @@ public:
 
 	// Unbinds any previously bound shader by explicitly binding no shader.
 	static void bindNoShader(void);
+
+	U32 mMatHash[LLRender::NUM_MATRIX_MODES];
+	U32 mLightHash;
 
 	GLhandleARB mProgramObject;
 	std::vector<GLint> mAttribute; //lookup table of attribute enum to attribute channel

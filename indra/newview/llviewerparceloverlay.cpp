@@ -59,7 +59,6 @@ const U8  OVERLAY_IMG_COMPONENTS = 4;
 LLViewerParcelOverlay::LLViewerParcelOverlay(LLViewerRegion* region, F32 region_width_meters)
 :	mRegion( region ),
 	mParcelGridsPerEdge( S32( region_width_meters / PARCEL_GRID_STEP_METERS ) ),
-	mRegionSize(S32(region_width_meters)),
 	mDirty( FALSE ),
 	mTimeSinceLastUpdate(),
 	mOverlayTextureIdx(-1),
@@ -414,8 +413,7 @@ void LLViewerParcelOverlay::uncompressLandOverlay(S32 chunk, U8 *packed_overlay)
 {
 	// Unpack the message data into the ownership array
 	S32	size	= mParcelGridsPerEdge * mParcelGridsPerEdge;
-	S32 mParcelOverLayChunks = mRegionSize * mRegionSize / (128 * 128);
-	S32 chunk_size = size / mParcelOverLayChunks; 
+	S32 chunk_size = size / PARCEL_OVERLAY_CHUNKS;
 
 	memcpy(mOwnership + chunk*chunk_size, packed_overlay, chunk_size);		/*Flawfinder: ignore*/
 
@@ -872,7 +870,7 @@ S32 LLViewerParcelOverlay::renderPropertyLines	()
 
 	LLGLSUIDefault gls_ui; // called from pipeline
 	gGL.getTexUnit(0)->unbind(LLTexUnit::TT_TEXTURE);
-	LLGLDepthTest mDepthTest(GL_TRUE);
+	LLGLDepthTest mDepthTest(GL_TRUE, GL_FALSE);
 
 	// Find camera height off the ground (not from zero)
 	F32 ground_height_at_camera = land.resolveHeightGlobal( gAgentCamera.getCameraPositionGlobal() );
@@ -890,14 +888,14 @@ S32 LLViewerParcelOverlay::renderPropertyLines	()
 	// Always fudge a little vertically.
 	pull_toward_camera.mV[VZ] += 0.01f;
 
-	glMatrixMode( GL_MODELVIEW );
-	glPushMatrix();
+	gGL.matrixMode(LLRender::MM_MODELVIEW);
+	gGL.pushMatrix();
 
 	// Move to appropriate region coords
 	LLVector3 origin = mRegion->getOriginAgent();
-	glTranslatef( origin.mV[VX], origin.mV[VY], origin.mV[VZ] );
+	gGL.translatef( origin.mV[VX], origin.mV[VY], origin.mV[VZ] );
 
-	glTranslatef(pull_toward_camera.mV[VX], pull_toward_camera.mV[VY],
+	gGL.translatef(pull_toward_camera.mV[VX], pull_toward_camera.mV[VY],
 		pull_toward_camera.mV[VZ]);
 
 	// Include +1 because vertices are fenceposts.
@@ -995,7 +993,7 @@ S32 LLViewerParcelOverlay::renderPropertyLines	()
 		
 	}
 
-	glPopMatrix();
+	gGL.popMatrix();
 
 	return drawn;
 }

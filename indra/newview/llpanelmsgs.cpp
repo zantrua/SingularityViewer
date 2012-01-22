@@ -40,6 +40,7 @@
 #include "llviewercontrol.h"
 #include "lluictrlfactory.h"
 #include "llfirstuse.h"
+#include "llnotificationtemplate.h"
 
 //-----------------------------------------------------------------------------
 LLPanelMsgs::LLPanelMsgs() : 
@@ -60,6 +61,8 @@ BOOL LLPanelMsgs::postBuild()
 	childSetAction("enable_popup", onClickEnablePopup, this);
 	childSetAction("reset_dialogs_btn", onClickResetDialogs, this);
 	childSetAction("skip_dialogs_btn", onClickSkipDialogs, this);
+	childSetAction("skip_frst_btn", onClickSkipFirstTime, this);
+
 	buildLists();
 
 	childSetValue("accept_new_inventory", gSavedSettings.getBOOL("AutoAcceptNewInventory"));
@@ -69,11 +72,14 @@ BOOL LLPanelMsgs::postBuild()
 	return TRUE;
 }
 
-void LLPanelMsgs::buildLists()
-{
-	LLScrollListCtrl& disabled_popups = getChildRef<LLScrollListCtrl>("disabled_popups");
-	LLScrollListCtrl& enabled_popups = getChildRef<LLScrollListCtrl>("enabled_popups");
 
+void LLPanelMsgs::buildLists() //void LLFloaterPreference::buildPopupLists() in v3
+{
+	LLScrollListCtrl& disabled_popups =
+		getChildRef<LLScrollListCtrl>("disabled_popups");
+	LLScrollListCtrl& enabled_popups =
+		getChildRef<LLScrollListCtrl>("enabled_popups");
+	
 	disabled_popups.deleteAllItems();
 	enabled_popups.deleteAllItems();
 
@@ -88,14 +94,20 @@ void LLPanelMsgs::buildLists()
 		if (ignore == LLNotificationForm::IGNORE_NO)
 				continue;
 
+		LLSD params;
+		params["name"] = (*iter).first;
+		LLNotificationPtr notification = LLNotificationPtr(new LLNotification(params));
+
 		LLSD row;
-		row["columns"][0]["value"] = formp->getIgnoreMessage();
+		std::string ignore_msg = formp->getIgnoreMessage();
+		LLStringUtil::format(ignore_msg,notification->getSubstitutions());
+		row["columns"][0]["value"] = ignore_msg;
 		row["columns"][0]["font"] = "SANSSERIF_SMALL";
 		row["columns"][0]["width"] = 300;
 
 		LLScrollListItem* item = NULL;
 
-		bool show_popup = gSavedSettings.getWarning(templatep->mName);
+		bool show_popup = !formp->getIgnored();
 		if (!show_popup)
 		{
 			if (ignore == LLNotificationForm::IGNORE_WITH_LAST_RESPONSE)
@@ -245,4 +257,12 @@ bool callback_skip_dialogs(const LLSD& notification, const LLSD& response, LLPan
 void LLPanelMsgs::onClickSkipDialogs(void* user_data)
 {
 	LLNotificationsUtil::add("SkipShowNextTimeDialogs", LLSD(), LLSD(), boost::bind(&callback_skip_dialogs, _1, _2, (LLPanelMsgs*)user_data));
+}
+
+// static
+void LLPanelMsgs::onClickSkipFirstTime(void* user_data)
+{
+	LLFirstUse::disableFirstUse();
+	LLPanelMsgs* panelp = (LLPanelMsgs*)user_data;
+	if(panelp) panelp->buildLists();
 }

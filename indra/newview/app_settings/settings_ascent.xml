@@ -13,6 +13,7 @@
       <key>Value</key>
       <integer>1</integer>
     </map>
+<<<<<<< HEAD
     <key>SianaRenderOmitBlankVBO</key>
 		<map>
 			<key>Comment</key>
@@ -24,6 +25,8 @@
 			<key>Value</key>
 			<integer>1</integer>
 		</map>
+=======
+>>>>>>> a39bf619775fce29521a91e7671205334bab7687
 		<key>SianaUnsitOnCamReset</key>
 		<map>
 			<key>Comment</key>
@@ -589,7 +592,7 @@
 		<key>AscentCmdLineKeyToName</key>
 		<map>
 			<key>Comment</key>
-			<string>Use a fast key to name querry</string>
+			<string>Use a fast key to name query</string>
 			<key>Persist</key>
 			<integer>1</integer>
 			<key>Type</key>

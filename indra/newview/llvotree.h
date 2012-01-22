@@ -153,12 +153,15 @@ public:
 	};
 
 	static F32 sTreeFactor;			// Tree level of detail factor
+
+	typedef std::map<std::string, S32> SpeciesNames;
+	static SpeciesNames sSpeciesNames;
+
 	static const S32 sMAX_NUM_TREE_LOD_LEVELS ;
 
 	friend class LLDrawPoolTree;
 protected:
 	LLVector3		mTrunkBend;		// Accumulated wind (used for blowing trees)
-	LLVector3		mTrunkVel;		// 
 	LLVector3		mWind;
 
 	LLPointer<LLVertexBuffer> mReferenceBuffer; //reference geometry for generating tree mesh

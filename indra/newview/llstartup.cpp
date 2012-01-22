@@ -43,7 +43,11 @@
 #include "llviewermedia_streamingaudio.h"
 #include "llaudioengine.h"
 
-#ifdef LL_FMOD
+#if LL_FMODEX
+# include "llaudioengine_fmodex.h"
+#endif
+
+#if LL_FMOD
 # include "llaudioengine_fmod.h"
 #endif
 
@@ -124,7 +128,7 @@
 #include "llhttpclient.h"
 #include "llimagebmp.h"
 #include "llimview.h" // for gIMMgr
-#include "llinventorymodel.h"
+#include "llinventoryfunctions.h"
 #include "llinventoryview.h"
 #include "llkeyboard.h"
 #include "llloginhandler.h"			// gLoginHandler, SLURL support
@@ -210,6 +214,7 @@
 #include "ascentdaycyclemanager.h"
 #include "llfloaterblacklist.h"
 #include "scriptcounter.h"
+#include "shfloatermediaticker.h"
 // </edit>
 
 #include "llavatarnamecache.h"
@@ -258,6 +263,9 @@ static bool gUseCircuitCallbackCalled = false;
 EStartupState LLStartUp::gStartupState = STATE_FIRST;
 
 
+static U64 gFirstSimHandle = 0;
+static LLHost gFirstSim;
+static std::string gFirstSimSeedCap;
 //
 // local function declaration
 //
@@ -368,12 +376,6 @@ bool idle_startup()
 	static LLUUID web_login_key;
 	static std::string password;
 	static std::vector<const char*> requested_options;
-
-	static U64 first_sim_handle = 0;
-	static LLHost first_sim;
-	static std::string first_sim_seed_cap;
-	static U32 first_sim_size_x = 256;
-	static U32 first_sim_size_y = 256;
 
 	static LLVector3 initial_sun_direction(1.f, 0.f, 0.f);
 	static LLVector3 agent_start_position_region(10.f, 10.f, 10.f);		// default for when no space server
@@ -666,6 +668,17 @@ bool idle_startup()
 			}
 #endif
 
+#ifdef LL_FMODEX		
+			if (!gAudiop
+#if !LL_WINDOWS
+			    && NULL == getenv("LL_BAD_FMODEX_DRIVER")
+#endif // !LL_WINDOWS
+			    )
+			{
+				gAudiop = (LLAudioEngine *) new LLAudioEngine_FMODEX(gSavedSettings.getBOOL("SHEnableFMODExProfiler"));
+			}
+#endif
+
 #ifdef LL_FMOD			
 			if (!gAudiop
 #if !LL_WINDOWS
@@ -807,7 +820,6 @@ bool idle_startup()
 		set_startup_status(0.03f, msg.c_str(), gAgent.mMOTD.c_str());
 		display_startup();
 		// LLViewerMedia::initBrowser();
-
 		LLStartUp::setStartupState( STATE_LOGIN_SHOW );
 		return FALSE;
 	}
@@ -975,7 +987,14 @@ bool idle_startup()
 		}
 		
 		gHippoGridManager->setCurrentGridAsConnected();
-		gHippoLimits->setLimits();		
+		gHippoLimits->setLimits();
+		if(!gHippoGridManager->getConnectedGrid()->isSecondLife())
+		{
+			LLTrans::setDefaultArg("[CURRENCY]",gHippoGridManager->getConnectedGrid()->getCurrencySymbol());	//replace [CURRENCY] with OS$, not L$ for instance.
+			LLTrans::setDefaultArg("[SECOND_LIFE]", gHippoGridManager->getConnectedGrid()->getGridName());
+			LLTrans::setDefaultArg("[SECOND_LIFE_GRID]", gHippoGridManager->getConnectedGrid()->getGridName() + " Grid");
+			LLTrans::setDefaultArg("[GRID_OWNER]", gHippoGridManager->getConnectedGrid()->getGridOwner());
+		}
 
 		// create necessary directories
 		// *FIX: these mkdir's should error check
@@ -1119,7 +1138,7 @@ bool idle_startup()
 
 		// Display the startup progress bar.
 		gViewerWindow->setShowProgress(!gSavedSettings.getBOOL("AscentDisableLogoutScreens"));
-		gViewerWindow->setProgressCancelButtonVisible(TRUE, std::string("Quit")); // *TODO: Translate
+		gViewerWindow->setProgressCancelButtonVisible(TRUE, LLTrans::getString("Quit"));
 
 		// Poke the VFS, which could potentially block for a while if
 		// Windows XP is acting up
@@ -1204,9 +1223,7 @@ bool idle_startup()
 		}
 		auth_method = "login_to_simulator";
 		
-		LLStringUtil::format_map_t args;
-		args["[APP_NAME]"] = LLAppViewer::instance()->getSecondLifeTitle();
-		auth_desc = LLTrans::getString("LoginInProgress", args);
+		auth_desc = LLTrans::getString("LoginInProgress");
 		LLStartUp::setStartupState( STATE_XMLRPC_LEGACY_LOGIN ); // XMLRPC
 	}
 
@@ -1349,7 +1366,7 @@ bool idle_startup()
 		LL_DEBUGS("AppInit") << "STATE_LOGIN_NO_DATA_YET" << LL_ENDL;
 		// If we get here we have gotten past the potential stall
 		// in curl, so take "may appear frozen" out of progress bar. JC
-		auth_desc = "Logging in...";
+		auth_desc = LLTrans::getString("LoginInProgressNoFrozen");
 		set_startup_status(progress, auth_desc, auth_message);
 		// Process messages to keep from dropping circuit.
 		LLMessageSystem* msg = gMessageSystem;
@@ -1415,7 +1432,7 @@ bool idle_startup()
 			}
 			else
 			{
-				emsg << "Login failed.\n";
+				emsg << LLTrans::getString("LoginFailed") + "\n";
 				reason_response = LLUserAuth::getInstance()->getResponse("reason");
 				message_response = LLUserAuth::getInstance()->getResponse("message");
 
@@ -1555,7 +1572,7 @@ bool idle_startup()
 			text = LLUserAuth::getInstance()->getResponse("secure_session_id");
 			if(!text.empty()) gAgent.mSecureSessionID.set(text);
 
-			text = LLUserAuth::getInstance()->getResponse("firsst_name");
+			text = LLUserAuth::getInstance()->getResponse("first_name");
 			if(!text.empty()) 
 			{
 				// Remove quotes from string.  Login.cgi sends these to force
@@ -1647,10 +1664,10 @@ bool idle_startup()
 			if(!sim_ip_str.empty() && !sim_port_str.empty())
 			{
 				U32 sim_port = strtoul(sim_port_str.c_str(), NULL, 10);
-				first_sim.set(sim_ip_str, sim_port);
-				if (first_sim.isOk())
+				gFirstSim.set(sim_ip_str, sim_port);
+				if (gFirstSim.isOk())
 				{
-					gMessageSystem->enableCircuit(first_sim, TRUE);
+					gMessageSystem->enableCircuit(gFirstSim, TRUE);
 				}
 			}
 			std::string region_x_str = LLUserAuth::getInstance()->getResponse("region_x");
@@ -1659,19 +1676,9 @@ bool idle_startup()
 			{
 				U32 region_x = strtoul(region_x_str.c_str(), NULL, 10);
 				U32 region_y = strtoul(region_y_str.c_str(), NULL, 10);
-				first_sim_handle = to_region_handle(region_x, region_y);
+				gFirstSimHandle = to_region_handle(region_x, region_y);
 			}
-
-			text = LLUserAuth::getInstance()->getResponse("region_size_x");
-			if(!text.empty()) {
-				first_sim_size_x = strtoul(text.c_str(), NULL, 10);
-				LLViewerParcelMgr::getInstance()->init(first_sim_size_x);
-			}
-
-			//region Y size is currently unused, major refactoring required. - Patrick Sapinski (2/10/2011)
-			text = LLUserAuth::getInstance()->getResponse("region_size_y");
-			if(!text.empty()) first_sim_size_y = strtoul(text.c_str(), NULL, 10);
-
+			
 			const std::string look_at_str = LLUserAuth::getInstance()->getResponse("look_at");
 			if (!look_at_str.empty())
 			{
@@ -1682,7 +1689,7 @@ bool idle_startup()
 			}
 
 			text = LLUserAuth::getInstance()->getResponse("seed_capability");
-			if (!text.empty()) first_sim_seed_cap = text;
+			if (!text.empty()) gFirstSimSeedCap = text;
 						
 			text = LLUserAuth::getInstance()->getResponse("seconds_since_epoch");
 			if(!text.empty())
@@ -1716,8 +1723,8 @@ bool idle_startup()
 				it = options[0].find("folder_id");
 				if(it != options[0].end())
 				{
-					gAgent.setInventoryRootID(LLUUID((*it).second));
-					//gInventory.mock(gAgent.getInventoryRootID());
+					gInventory.setRootFolderID(LLUUID((*it).second));
+					//gInventory.mock(gInventory.getRootFolderID());
 				}
 			}
 
@@ -1858,7 +1865,7 @@ bool idle_startup()
 			if(gAgentID.notNull()
 			   && gAgentSessionID.notNull()
 			   && gMessageSystem->mOurCircuitCode
-			   && first_sim.isOk())
+			   && gFirstSim.isOk())
 			// OGPX : Inventory root might be null in OGP.
 //			   && gAgent.mInventoryRootID.notNull())
 			{
@@ -1937,7 +1944,6 @@ bool idle_startup()
 		LLDrawable::initClass();
 
 		// init the shader managers
-		LLPostProcess::initClass();
 		AscentDayCycleManager::initClass();
 
 		// RN: don't initialize VO classes in drone mode, they are too closely tied to rendering
@@ -1955,14 +1961,14 @@ bool idle_startup()
 		// This is necessary because creating objects before this is set will result in a
 		// bad mPositionAgent cache.
 
-		gAgent.initOriginGlobal(from_region_handle(first_sim_handle));
+		gAgent.initOriginGlobal(from_region_handle(gFirstSimHandle));
 
-		LLWorld::getInstance()->addRegion(first_sim_handle, first_sim, first_sim_size_x, first_sim_size_y);
+		LLWorld::getInstance()->addRegion(gFirstSimHandle, gFirstSim);
 
-		LLViewerRegion *regionp = LLWorld::getInstance()->getRegionFromHandle(first_sim_handle);
+		LLViewerRegion *regionp = LLWorld::getInstance()->getRegionFromHandle(gFirstSimHandle);
 		LL_INFOS("AppInit") << "Adding initial simulator " << regionp->getOriginGlobal() << LL_ENDL;
 		
-		regionp->setSeedCapability(first_sim_seed_cap);
+		regionp->setSeedCapability(gFirstSimSeedCap);
 		LL_DEBUGS("AppInit") << "Waiting for seed grant ...." << LL_ENDL;
 		
 		// Set agent's initial region to be the one we just created.
@@ -1987,15 +1993,42 @@ bool idle_startup()
 	if (STATE_MULTIMEDIA_INIT == LLStartUp::getStartupState())
 	{
 		LLStartUp::multimediaInit();
-		LLStartUp::setStartupState( STATE_SEED_GRANTED_WAIT );
+		LLStartUp::setStartupState( STATE_FONT_INIT );
 		return FALSE;
 	}
 
+	// Loading fonts takes several seconds
+	if (STATE_FONT_INIT == LLStartUp::getStartupState())
+	{
+		LLStartUp::fontInit();
+		LLStartUp::setStartupState( STATE_SEED_GRANTED_WAIT );
+		return FALSE;
+	}
+	
 	//---------------------------------------------------------------------
 	// Wait for Seed Cap Grant
 	//---------------------------------------------------------------------
 	if(STATE_SEED_GRANTED_WAIT == LLStartUp::getStartupState())
 	{
+		/*LLViewerRegion *regionp = LLWorld::getInstance()->getRegionFromHandle(gFirstSimHandle);
+		if (regionp->capabilitiesReceived())
+		{
+			LLStartUp::setStartupState( STATE_SEED_CAP_GRANTED );
+		}
+		else
+		{
+			U32 num_retries = regionp->getNumSeedCapRetries();
+			if (num_retries > 0)
+			{
+				LLStringUtil::format_map_t args;
+				args["[NUMBER]"] = llformat("%d", num_retries + 1);
+				set_startup_status(0.4f, LLTrans::getString("LoginRetrySeedCapGrant", args), gAgent.mMOTD);
+			}
+			else
+			{
+				set_startup_status(0.4f, LLTrans::getString("LoginRequestSeedCapGrant"), gAgent.mMOTD);
+			}
+		}*/
 		return FALSE;
 	}
 
@@ -2031,6 +2064,10 @@ bool idle_startup()
 		{
 			LLFloaterAvatarList::createInstance(false);
 		}
+		if (gSavedSettings.getBOOL("SHShowMediaTicker"))
+		{
+			SHFloaterMediaTicker::showInstance();
+		}
 		// </edit>
 		if (gSavedSettings.getBOOL("ShowCameraControls"))
 		{
@@ -2050,6 +2087,8 @@ bool idle_startup()
 		{
 			LLFloaterBeacons::showInstance();
 		}
+		
+
 		
 		if (!gNoRender)
 		{
@@ -2186,16 +2225,16 @@ bool idle_startup()
 
 		gUseCircuitCallbackCalled = FALSE;
 
-		msg->enableCircuit(first_sim, TRUE);
+		msg->enableCircuit(gFirstSim, TRUE);
 		// now, use the circuit info to tell simulator about us!
-		LL_INFOS("AppInit") << "viewer: UserLoginLocationReply() Enabling " << first_sim << " with code " << msg->mOurCircuitCode << LL_ENDL;
+		LL_INFOS("AppInit") << "viewer: UserLoginLocationReply() Enabling " << gFirstSim << " with code " << msg->mOurCircuitCode << LL_ENDL;
 		msg->newMessageFast(_PREHASH_UseCircuitCode);
 		msg->nextBlockFast(_PREHASH_CircuitCode);
 		msg->addU32Fast(_PREHASH_Code, msg->mOurCircuitCode);
 		msg->addUUIDFast(_PREHASH_SessionID, gAgent.getSessionID());
 		msg->addUUIDFast(_PREHASH_ID, gAgent.getID());
 		msg->sendReliable(
-			first_sim,
+			gFirstSim,
 			MAX_TIMEOUT_COUNT,
 			FALSE,
 			TIMEOUT_SECONDS,
@@ -2318,7 +2357,7 @@ bool idle_startup()
 			it = options[0].find("folder_id");
 			if(it != options[0].end())
 			{
-				gInventoryLibraryRoot.set((*it).second);
+				gInventory.setLibraryRootFolderID(LLUUID((*it).second));
 			}
 		}
  		options.clear();
@@ -2330,14 +2369,14 @@ bool idle_startup()
 			it = options[0].find("agent_id");
 			if(it != options[0].end())
 			{
-				gInventoryLibraryOwner.set((*it).second);
+				gInventory.setLibraryOwnerID(LLUUID((*it).second));
 			}
 		}
  		options.clear();
  		if(LLUserAuth::getInstance()->getOptions("inventory-skel-lib", options)
-			&& gInventoryLibraryOwner.notNull())
+			&& gInventory.getLibraryOwnerID().notNull())
  		{
- 			if(!gInventory.loadSkeleton(options, gInventoryLibraryOwner))
+ 			if(!gInventory.loadSkeleton(options, gInventory.getLibraryOwnerID()))
  			{
  				LL_WARNS("AppInit") << "Problem loading inventory-skel-lib" << LL_ENDL;
  			}
@@ -3187,7 +3226,7 @@ void update_app(BOOL mandatory, const std::string& auth_msg)
 
 	std::ostringstream message;
 
-	//*TODO:translate
+	// *TODO:translate
 	std::string msg;
 	if (!auth_msg.empty())
 	{
@@ -3757,6 +3796,7 @@ std::string LLStartUp::startupStateToString(EStartupState state)
 		RTNENUM( STATE_LOGIN_DOWNLOADING );
 		RTNENUM( STATE_LOGIN_PROCESS_RESPONSE );
 		RTNENUM( STATE_WORLD_INIT );
+		RTNENUM( STATE_FONT_INIT );
 		RTNENUM( STATE_SEED_GRANTED_WAIT );
 		RTNENUM( STATE_SEED_CAP_GRANTED );
 		RTNENUM( STATE_WORLD_WAIT );
@@ -3831,6 +3871,15 @@ void LLStartUp::multimediaInit()
 	LLViewerParcelMedia::initClass();
 }
 
+void LLStartUp::fontInit()
+{
+	LL_DEBUGS("AppInit") << "Initializing fonts...." << LL_ENDL;
+	std::string msg = LLTrans::getString("LoginInitializingFonts");
+	set_startup_status(0.45f, msg.c_str(), gAgent.mMOTD.c_str());
+	display_startup();
+
+	LLFontGL::loadDefaultFonts();
+}
 
 void LLStartUp::initNameCache()
 {

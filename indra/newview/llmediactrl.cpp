@@ -63,7 +63,7 @@ const S32 MAX_TEXTURE_DIMENSION = 2048;
 static LLRegisterWidget<LLMediaCtrl> r("web_browser");
 
 LLMediaCtrl::LLMediaCtrl( const std::string& name, const LLRect& rect ) :
-	LLUICtrl( name, rect, FALSE, NULL, NULL ),
+	LLUICtrl( name, rect, FALSE, NULL, NULL),
 	LLInstanceTracker<LLMediaCtrl, LLUUID>(LLUUID::generateNewID()),
 	mTextureDepthBytes( 4 ),
 	mWebBrowserImage( 0 ),
@@ -338,6 +338,15 @@ void LLMediaCtrl::onFocusLost()
 
 ////////////////////////////////////////////////////////////////////////////////
 //
+
+BOOL LLMediaCtrl::postBuild ()
+{
+	//setVisibleCallback(boost::bind(&LLMediaCtrl::onVisibilityChange, this, _2));
+	return true;
+}
+
+////////////////////////////////////////////////////////////////////////////////
+//
 BOOL LLMediaCtrl::handleKeyHere( KEY key, MASK mask )
 {
 	BOOL result = FALSE;
@@ -386,10 +395,14 @@ void LLMediaCtrl::handleVisibilityChange ( BOOL new_visibility )
 	{
 		mMediaSource->setVisible( new_visibility );
 	}
+	LLUICtrl::handleVisibilityChange( new_visibility );
+	//Hack due to not being derived from LLPanel yet
+	LLMediaCtrl::onVisibilityChange(LLSD(new_visibility));
 }
 
 ////////////////////////////////////////////////////////////////////////////////
 //
+
 BOOL LLMediaCtrl::handleUnicodeCharHere(llwchar uni_char)
 {
 	BOOL result = FALSE;
@@ -407,10 +420,10 @@ BOOL LLMediaCtrl::handleUnicodeCharHere(llwchar uni_char)
 
 ////////////////////////////////////////////////////////////////////////////////
 //
-void LLMediaCtrl::onVisibilityChange ( BOOL new_visibility )
+void LLMediaCtrl::onVisibilityChange ( const LLSD& new_visibility )
 {
 	// set state of frequent updates automatically if visibility changes
-	if ( new_visibility )
+	if ( new_visibility.asBoolean() )
 	{
 		mFrequentUpdates = true;
 	}
@@ -418,7 +431,6 @@ void LLMediaCtrl::onVisibilityChange ( BOOL new_visibility )
 	{
 		mFrequentUpdates = false;
 	}
-	LLUICtrl::onVisibilityChange(new_visibility);
 }
 
 ////////////////////////////////////////////////////////////////////////////////
@@ -705,7 +717,7 @@ void LLMediaCtrl::draw()
 		{
 			if (mIgnoreUIScale)
 			{
-				glLoadIdentity();
+				gGL.loadIdentity();
 				// font system stores true screen origin, need to scale this by UI scale factor
 				// to get render origin for this view (with unit scale)
 				gGL.translatef(floorf(LLFontGL::sCurOrigin.mX * LLUI::sGLScaleFactor.mV[VX]), 
@@ -964,6 +976,42 @@ void LLMediaCtrl::handleMediaEvent(LLPluginClassMedia* self, EMediaEvent event)
 		case MEDIA_EVENT_NAME_CHANGED:
 		{
 			LL_DEBUGS("Media") <<  "Media event:  MEDIA_EVENT_NAME_CHANGED" << LL_ENDL;
+		};
+		break;
+			
+		case MEDIA_EVENT_NAVIGATE_ERROR_PAGE:
+		{
+			LL_DEBUGS("Media") <<  "Media event:  MEDIA_EVENT_NAVIGATE_ERROR_PAGE" << LL_ENDL;
+		};
+		break;
+			
+		case MEDIA_EVENT_CLOSE_REQUEST:
+		{
+			LL_DEBUGS("Media") <<  "Media event:  MEDIA_EVENT_CLOSE_REQUEST" << LL_ENDL;
+		};
+		break;
+			
+		case MEDIA_EVENT_PICK_FILE_REQUEST:
+		{
+			LL_DEBUGS("Media") <<  "Media event:  MEDIA_EVENT_PICK_FILE_REQUEST" << LL_ENDL;
+		};
+		break;
+			
+		case MEDIA_EVENT_GEOMETRY_CHANGE:
+		{
+			LL_DEBUGS("Media") <<  "Media event:  MEDIA_EVENT_GEOMETRY_CHANGE" << LL_ENDL;
+		};
+		break;
+			
+		case MEDIA_EVENT_AUTH_REQUEST:
+		{
+			LL_DEBUGS("Media") <<  "Media event:  MEDIA_EVENT_AUTH_REQUEST" << LL_ENDL;
+		};
+		break;
+			
+		case MEDIA_EVENT_LINK_HOVERED:
+		{
+			LL_DEBUGS("Media") <<  "Media event:  MEDIA_EVENT_LINK_HOVERED" << LL_ENDL;
 		};
 		break;
 		

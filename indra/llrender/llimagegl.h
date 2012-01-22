@@ -76,13 +76,14 @@ public:
 	static S32 updateBoundTexMem(const S32 mem, const S32 ncomponents, S32 category) ;
 	
 	static bool checkSize(S32 width, S32 height);
-	
+
+	//for server side use only.
 	// Not currently necessary for LLImageGL, but required in some derived classes,
 	// so include for compatability
 	static BOOL create(LLPointer<LLImageGL>& dest, BOOL usemipmaps = TRUE);
 	static BOOL create(LLPointer<LLImageGL>& dest, U32 width, U32 height, U8 components, BOOL usemipmaps = TRUE);
 	static BOOL create(LLPointer<LLImageGL>& dest, const LLImageRaw* imageraw, BOOL usemipmaps = TRUE);
-	
+		
 public:
 	LLImageGL(BOOL usemipmaps = TRUE);
 	LLImageGL(U32 width, U32 height, U8 components, BOOL usemipmaps = TRUE);
@@ -256,9 +257,9 @@ private:
 	//can be removed if we do not use that function at all.
 	static BOOL sAllowReadBackRaw ;
 //
-//****************************************************************************************************
+// ****************************************************************************************************
 //The below for texture auditing use only
-//****************************************************************************************************
+// ****************************************************************************************************
 private:
 	S32 mCategory ;
 public:		
@@ -289,9 +290,9 @@ public:
 	static std::vector<S32> sTextureMemByCategoryBound ;
 	static std::vector<S32> sTextureCurMemByCategoryBound ;
 	//----------------------------------------	
-//****************************************************************************************************
+// ****************************************************************************************************
 //End of definitions for texture auditing use only
-//****************************************************************************************************
+// ****************************************************************************************************
 
 };
 

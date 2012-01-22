@@ -50,6 +50,8 @@
 #include "llstat.h"
 #include "llmousehandler.h"
 #include "llalertdialog.h"
+#include "llmousehandler.h"
+#include "llhandle.h"
 #include "llnotifications.h"
 
 class LLView;
@@ -152,6 +154,7 @@ public:
 	/*virtual*/ BOOL handleTranslatedKeyUp(KEY key,  MASK mask);
 	/*virtual*/ void handleScanKey(KEY key, BOOL key_down, BOOL key_up, BOOL key_level);
 	/*virtual*/ BOOL handleUnicodeChar(llwchar uni_char, MASK mask);	// NOT going to handle extended 
+	/*virtual*/ BOOL handleAnyMouseClick(LLWindow *window,  LLCoordGL pos, MASK mask, LLMouseHandler::EClickType clicktype, BOOL down);
 	/*virtual*/ BOOL handleMouseDown(LLWindow *window,  LLCoordGL pos, MASK mask);
 	/*virtual*/ BOOL handleMouseUp(LLWindow *window,  LLCoordGL pos, MASK mask);
 	/*virtual*/ BOOL handleCloseRequest(LLWindow *window);
@@ -180,6 +183,9 @@ public:
 	/*virtual*/ void handlePingWatchdog(LLWindow *window, const char * msg);
 	/*virtual*/ void handlePauseWatchdog(LLWindow *window);
 	/*virtual*/ void handleResumeWatchdog(LLWindow *window);
+	/*virtual*/ std::string translateString(const char* tag);
+	/*virtual*/ std::string translateString(const char* tag,
+					const std::map<std::string, std::string>& args);
 
 
 	//
@@ -229,6 +235,7 @@ public:
 	LLCoordGL		getCurrentMouseDelta()	const	{ return mCurrentMouseDelta; }
 	LLStat *		getMouseVelocityStat()		{ return &mMouseVelocityStat; }
 	BOOL			getLeftMouseDown()	const	{ return mLeftMouseDown; }
+	BOOL			getMiddleMouseDown()	const	{ return mMiddleMouseDown; }
 	BOOL			getRightMouseDown()	const	{ return mRightMouseDown; }
 
 	const LLPickInfo&	getLastPick() const { return mLastPick; }
@@ -405,6 +412,7 @@ protected:
 	LLCoordGL		mCurrentMouseDelta;		//amount mouse moved this frame
 	LLStat			mMouseVelocityStat;
 	BOOL			mLeftMouseDown;
+	BOOL			mMiddleMouseDown;
 	BOOL			mRightMouseDown;
 
 	LLProgressView	*mProgressView;
@@ -485,19 +493,19 @@ extern LLFrameTimer		gMouseIdleTimer;		// how long has it been since the mouse l
 extern LLFrameTimer		gAwayTimer;				// tracks time before setting the avatar away state to true
 extern LLFrameTimer		gAwayTriggerTimer;		// how long the avatar has been away
 
-extern BOOL				gDebugFastUIRender;
 extern LLViewerObject*  gDebugRaycastObject;
 extern LLVector3        gDebugRaycastIntersection;
 extern LLVector2        gDebugRaycastTexCoord;
 extern LLVector3        gDebugRaycastNormal;
 extern LLVector3        gDebugRaycastBinormal;
 extern S32				gDebugRaycastFaceHit;
-
-extern S32 CHAT_BAR_HEIGHT; 
+extern LLVector3		gDebugRaycastStart;
+extern LLVector3		gDebugRaycastEnd;
 
 extern BOOL			gDisplayCameraPos;
 extern BOOL			gDisplayWindInfo;
 extern BOOL			gDisplayNearestWater;
 extern BOOL			gDisplayFOV;
 
+extern S32 CHAT_BAR_HEIGHT;
 #endif

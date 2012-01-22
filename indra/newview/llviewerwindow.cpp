@@ -39,9 +39,7 @@
 
 #include "llagent.h"
 #include "llagentcamera.h"
-#if MESH_ENABLED
 #include "llmeshrepository.h"
-#endif //MESH_ENABLED
 #include "llpanellogin.h"
 #include "llviewerkeyboard.h"
 #include "llviewerwindow.h"
@@ -67,6 +65,7 @@
 #include "llrect.h"
 #include "llsky.h"
 #include "llstring.h"
+#include "lltrans.h"
 #include "llui.h"
 #include "lluuid.h"
 #include "llview.h"
@@ -229,7 +228,6 @@ LLFrameTimer	gAlphaFadeTimer;
 BOOL			gShowOverlayTitle = FALSE;
 BOOL			gPickTransparent = TRUE;
 
-BOOL			gDebugFastUIRender = FALSE;
 LLViewerObject*  gDebugRaycastObject = NULL;
 LLVector3       gDebugRaycastIntersection;
 LLVector2       gDebugRaycastTexCoord;
@@ -461,12 +459,12 @@ public:
 				ypos += y_inc;
 			}
 
-#if MESH_ENABLED
 			//show streaming cost/triangle count of known prims in current region OR selection
 			//Note: This is SUPER slow
 			{
 				F32 cost = 0.f;
 				S32 count = 0;
+				S32 vcount = 0;
 				S32 object_count = 0;
 				S32 total_bytes = 0;
 				S32 visible_bytes = 0;
@@ -488,7 +486,9 @@ public:
 								S32 bytes = 0;	
 								S32 visible = 0;
 								cost += object->getStreamingCost(&bytes, &visible);
-								count += object->getTriangleCount();
+								S32 vt = 0;
+								count += object->getTriangleCount(&vt);
+								vcount += vt;
 								total_bytes += bytes;
 								visible_bytes += visible;
 							}
@@ -499,21 +499,20 @@ public:
 				{
 					label = "Selection";
 					cost = LLSelectMgr::getInstance()->getSelection()->getSelectedObjectStreamingCost(&total_bytes, &visible_bytes);
-					count = LLSelectMgr::getInstance()->getSelection()->getSelectedObjectTriangleCount();
+					count = LLSelectMgr::getInstance()->getSelection()->getSelectedObjectTriangleCount(&vcount);
 					object_count = LLSelectMgr::getInstance()->getSelection()->getObjectCount();
 				}
 					
 				addText(xpos,ypos, llformat("%s streaming cost: %.1f", label, cost));
 				ypos += y_inc;
 
-				addText(xpos, ypos, llformat("    %.3f KTris, %.1f/%.1f KB, %d objects",
-										count/1000.f, visible_bytes/1024.f, total_bytes/1024.f, object_count));
+				addText(xpos, ypos, llformat("    %.3f KTris, %.3f KVerts, %.1f/%.1f KB, %d objects",
+										count/1000.f, vcount/1000.f, visible_bytes/1024.f, total_bytes/1024.f, object_count));
 				ypos += y_inc;
 			
 			}
-#endif //MESH_ENABLED
 
-			addText(xpos, ypos, llformat("%d MB Vertex Data", LLVertexBuffer::sAllocatedBytes/(1024*1024)));
+			addText(xpos, ypos, llformat("%d MB Vertex Data (%d MB Pooled)", LLVertexBuffer::sAllocatedBytes/(1024*1024), LLVBOPool::sBytesPooled/(1024*1024)));
 			ypos += y_inc;
 
 			addText(xpos, ypos, llformat("%d Vertex Buffers", LLVertexBuffer::sGLCount));
@@ -627,7 +626,6 @@ public:
 
 			ypos += y_inc;
 
-#if MESH_ENABLED
 			if (gMeshRepo.meshRezEnabled())
 			{
 				addText(xpos, ypos, llformat("%.3f MB Mesh Data Received", LLMeshRepository::sBytesReceived/(1024.f*1024.f)));
@@ -643,7 +641,6 @@ public:
 
 				ypos += y_inc;
 			}
-#endif //MESH_ENABLED
 
 			LLVertexBuffer::sBindCount = LLImageGL::sBindCount = 
 				LLVertexBuffer::sSetCount = LLImageGL::sUniqueCount = 
@@ -692,6 +689,17 @@ public:
 			addText(xpos, ypos, llformat("%d %d %d %d", color[0], color[1], color[2], color[3]));
 			ypos += y_inc;
 		}
+
+		static const LLCachedControl<bool> DebugShowPrivateMem("DebugShowPrivateMem",false);
+		if (DebugShowPrivateMem)
+		{
+			LLPrivateMemoryPoolManager::getInstance()->updateStatistics() ;
+			addText(xpos, ypos, llformat("Total Reserved(KB): %d", LLPrivateMemoryPoolManager::getInstance()->mTotalReservedSize / 1024));
+			ypos += y_inc;
+
+			addText(xpos, ypos, llformat("Total Allocated(KB): %d", LLPrivateMemoryPoolManager::getInstance()->mTotalAllocatedSize / 1024));
+			ypos += y_inc;
+		}
 		// only display these messages if we are actually rendering beacons at this moment
 		static const LLCachedControl<bool> beacons_visible("BeaconsVisible",false);
 		if (LLPipeline::getRenderBeacons(NULL) && beacons_visible)
@@ -738,7 +746,7 @@ public:
 			const Line& line = *iter;
 			LLFontGL::getFontMonospace()->renderUTF8(line.text, 0, (F32)line.x, (F32)line.y, mTextColor,
 											 LLFontGL::LEFT, LLFontGL::TOP,
-											 LLFontGL::NORMAL, S32_MAX, S32_MAX, NULL, FALSE);
+											 LLFontGL::NORMAL, LLFontGL::NO_SHADOW, S32_MAX, S32_MAX, NULL, FALSE);
 		}
 		mLineList.clear();
 	}
@@ -770,19 +778,42 @@ bool LLViewerWindow::shouldShowToolTipFor(LLMouseHandler *mh)
 	return false;
 }
 
-BOOL LLViewerWindow::handleMouseDown(LLWindow *window,  LLCoordGL pos, MASK mask)
+BOOL LLViewerWindow::handleAnyMouseClick(LLWindow *window,  LLCoordGL pos, MASK mask, LLMouseHandler::EClickType clicktype, BOOL down)
 {
+	std::string buttonname;
+	std::string buttonstatestr;
+	BOOL handled = FALSE;
 	S32 x = pos.mX;
 	S32 y = pos.mY;
 	x = llround((F32)x / mDisplayScale.mV[VX]);
 	y = llround((F32)y / mDisplayScale.mV[VY]);
 
-	LLView::sMouseHandlerMessage.clear();
+	if (down)
+		buttonstatestr = "down";
+	else
+		buttonstatestr = "up";
 
-	if (gDebugClicks)
+	switch (clicktype)
 	{
-		llinfos << "ViewerWindow left mouse down at " << x << "," << y << llendl;
+	case LLMouseHandler::CLICK_LEFT:
+		mLeftMouseDown = down;
+		buttonname = "Left";
+		break;
+	case LLMouseHandler::CLICK_RIGHT:
+		mRightMouseDown = down;
+		buttonname = "Right";
+		break;
+	case LLMouseHandler::CLICK_MIDDLE:
+		mMiddleMouseDown = down;
+		buttonname = "Middle";
+		break;
+	case LLMouseHandler::CLICK_DOUBLELEFT:
+		mLeftMouseDown = down;
+		buttonname = "Left Double Click";
+		break;
 	}
+
+	LLView::sMouseHandlerMessage.clear();
 
 	if (gMenuBarView)
 	{
@@ -790,27 +821,41 @@ BOOL LLViewerWindow::handleMouseDown(LLWindow *window,  LLCoordGL pos, MASK mask
 		gMenuBarView->resetMenuTrigger();
 	}
 
-	mLeftMouseDown = TRUE;
+	if (gDebugClicks)
+	{
+		llinfos << "ViewerWindow " << buttonname << " mouse " << buttonstatestr << " at " << x << "," << y << llendl;
+	}
 
 	// Make sure we get a coresponding mouseup event, even if the mouse leaves the window
-	mWindow->captureMouse();
+	if (down)
+	{
+		mWindow->captureMouse();
+	}
+	else
+	{
+		mWindow->releaseMouse();
+	}
 
 	// Indicate mouse was active
 	gMouseIdleTimer.reset();
 
 	// Hide tooltips on mousedown
-	mToolTipBlocked = TRUE;
+	if (down)
+	{
+		mToolTipBlocked = TRUE;
+		mToolTip->setVisible(FALSE);
+	}
 
-	// Also hide hover info on mousedown
+	// Also hide hover info on mousedown/mouseup
 	if (gHoverView)
 	{
 		gHoverView->cancelHover();
 	}
 
 	// Don't let the user move the mouse out of the window until mouse up.
-	if( LLToolMgr::getInstance()->getCurrentTool()->clipMouseWhenDown() )
+	if (LLToolMgr::getInstance()->getCurrentTool()->clipMouseWhenDown())
 	{
-		mWindow->setMouseClipping(TRUE);
+		mWindow->setMouseClipping(down);
 	}
 
 	LLMouseHandler* mouse_captor = gFocusMgr.getMouseCapture();
@@ -821,10 +866,9 @@ BOOL LLViewerWindow::handleMouseDown(LLWindow *window,  LLCoordGL pos, MASK mask
 		mouse_captor->screenPointToLocal( x, y, &local_x, &local_y );
 		if (LLView::sDebugMouseHandling)
 		{
-			llinfos << "Left Mouse Down handled by captor " << mouse_captor->getName() << llendl;
+			llinfos << buttonname << " Mouse " << buttonstatestr << " handled by captor " << mouse_captor->getName() << llendl;
 		}
-
-		return mouse_captor->handleMouseDown(local_x, local_y, mask);
+		return mouse_captor->handleAnyMouseClick(local_x, local_y, mask, clicktype, down);
 	}
 
 	// Topmost view gets a chance before the hierarchy
@@ -833,221 +877,100 @@ BOOL LLViewerWindow::handleMouseDown(LLWindow *window,  LLCoordGL pos, MASK mask
 	{
 		S32 local_x, local_y;
 		top_ctrl->screenPointToLocal( x, y, &local_x, &local_y );
-		if (top_ctrl->pointInView(local_x, local_y))
+
+		if (down)
 		{
-			return top_ctrl->handleMouseDown(local_x, local_y, mask);
-		}
+    		if (top_ctrl->pointInView(local_x, local_y))
+	    	{
+    			return top_ctrl->handleAnyMouseClick(local_x, local_y, mask, clicktype, down)	;
+	    	}
+		    else
+    		{
+	    		gFocusMgr.setTopCtrl(NULL);
+		    }
+    	}
 		else
-		{
-			gFocusMgr.setTopCtrl(NULL);
-		}
+			handled = top_ctrl->pointInView(local_x, local_y) && top_ctrl->handleMouseUp(local_x, local_y, mask);
 	}
 
 	// Give the UI views a chance to process the click
-	if( mRootView->handleMouseDown(x, y, mask) )
+	if( mRootView->handleAnyMouseClick(x, y, mask, clicktype, down) )
 	{
 		if (LLView::sDebugMouseHandling)
 		{
-			llinfos << "Left Mouse Down" << LLView::sMouseHandlerMessage << llendl;
+			llinfos << buttonname << " Mouse " << buttonstatestr << " " << LLView::sMouseHandlerMessage << llendl;
 		}
 		return TRUE;
 	}
 	else if (LLView::sDebugMouseHandling)
 	{
-		llinfos << "Left Mouse Down not handled by view" << llendl;
+		llinfos << buttonname << " Mouse " << buttonstatestr << " not handled by view" << llendl;
 	}
 
-	// Do not allow tool manager to handle mouseclicks if we have disconnected	
-	if (gDisconnected)
+	if (down)
 	{
-		return FALSE;
-	}
+    	// Do not allow tool manager to handle mouseclicks if we have disconnected	
+	    if (gDisconnected)
+    	{
+	    	return FALSE;
+    	}
 		
-	if(LLToolMgr::getInstance()->getCurrentTool()->handleMouseDown( x, y, mask ) )
+	    if(LLToolMgr::getInstance()->getCurrentTool()->handleAnyMouseClick( x, y, mask, clicktype, down ) )
+    	{
+	    	// This is necessary to force clicks in the world to cause edit
+		    // boxes that might have keyboard focus to relinquish it, and hence
+    		// cause a commit to update their value.  JC
+	    	gFocusMgr.setKeyboardFocus(NULL);
+		    return TRUE;
+    	}
+	}
+	else
 	{
-		// This is necessary to force clicks in the world to cause edit
-		// boxes that might have keyboard focus to relinquish it, and hence
-		// cause a commit to update their value.  JC
-		gFocusMgr.setKeyboardFocus(NULL);
-		return TRUE;
+	    mWindow->releaseMouse();
+
+    	LLTool *tool = LLToolMgr::getInstance()->getCurrentTool();
+		if( !handled )
+	    {
+			handled = mRootView->handleAnyMouseClick(x, y, mask, clicktype, down);
+    	}
+
+		if( !handled )
+	    {
+			if (tool)
+		    {
+				handled = tool->handleAnyMouseClick(x, y, mask, clicktype, down);
+    		}
+	    }
 	}
 
-	return FALSE;
+	return (!down);
+}
+
+BOOL LLViewerWindow::handleMouseDown(LLWindow *window,  LLCoordGL pos, MASK mask)
+{
+	BOOL down = TRUE;
+	return handleAnyMouseClick(window,pos,mask,LLMouseHandler::CLICK_LEFT,down);
 }
 
 BOOL LLViewerWindow::handleDoubleClick(LLWindow *window,  LLCoordGL pos, MASK mask)
 {
-	S32 x = pos.mX;
-	S32 y = pos.mY;
-	x = llround((F32)x / mDisplayScale.mV[VX]);
-	y = llround((F32)y / mDisplayScale.mV[VY]);
-
-	LLView::sMouseHandlerMessage.clear();
-
-	if (gDebugClicks)
-	{
-		llinfos << "ViewerWindow left mouse double-click at " << x << "," << y << llendl;
-	}
-
-	mLeftMouseDown = TRUE;
-
-	// Hide tooltips
-	if( mToolTip )
-	{
-		mToolTip->setVisible( FALSE );
-	}
-
-	LLMouseHandler* mouse_captor = gFocusMgr.getMouseCapture();
-	if( mouse_captor )
-	{
-		S32 local_x;
-		S32 local_y;
-		mouse_captor->screenPointToLocal( x, y, &local_x, &local_y );
-		if (LLView::sDebugMouseHandling)
-		{
-			llinfos << "Left Mouse Down handled by captor " << mouse_captor->getName() << llendl;
-		}
-
-		return mouse_captor->handleDoubleClick(local_x, local_y, mask);
-	}
-
-	// Check for hit on UI.
-	LLUICtrl* top_ctrl = gFocusMgr.getTopCtrl();
-	if (top_ctrl)
-	{
-		S32 local_x, local_y;
-		top_ctrl->screenPointToLocal( x, y, &local_x, &local_y );
-		if (top_ctrl->pointInView(local_x, local_y))
-		{
-			return top_ctrl->handleDoubleClick(local_x, local_y, mask);
-		}
-		else
-		{
-			gFocusMgr.setTopCtrl(NULL);
-		}
-	}
-
-	if (mRootView->handleDoubleClick(x, y, mask)) 
-	{
-		if (LLView::sDebugMouseHandling)
-		{
-			llinfos << "Left Mouse Down" << LLView::sMouseHandlerMessage << llendl;
-		}
-		return TRUE;
-	}
-	else if (LLView::sDebugMouseHandling)
-	{
-		llinfos << "Left Mouse Down not handled by view" << llendl;
-	}
-
-		// Why is this here?  JC 9/3/2002
-	if (gNoRender) 
-	{
-		return TRUE;
-	}
-
-	if(LLToolMgr::getInstance()->getCurrentTool()->handleDoubleClick( x, y, mask ) )
-	{
-		return TRUE;
-	}
-
-	// if we got this far and nothing handled a double click, pass a normal mouse down
-	return handleMouseDown(window, pos, mask);
+	// try handling as a double-click first, then a single-click if that
+	// wasn't handled.
+	BOOL down = TRUE;
+	return handleAnyMouseClick(window,pos,mask,LLMouseHandler::CLICK_DOUBLELEFT,down) ||
+		handleMouseDown(window, pos, mask);
 }
 
 BOOL LLViewerWindow::handleMouseUp(LLWindow *window,  LLCoordGL pos, MASK mask)
 {
-	S32 x = pos.mX;
-	S32 y = pos.mY;
-	x = llround((F32)x / mDisplayScale.mV[VX]);
-	y = llround((F32)y / mDisplayScale.mV[VY]);
-
-	LLView::sMouseHandlerMessage.clear();
-
-	if (gDebugClicks)
-	{
-		llinfos << "ViewerWindow left mouse up" << llendl;
-	}
-
-	mLeftMouseDown = FALSE;
-
-	// Indicate mouse was active
-	gMouseIdleTimer.reset();
-
-	// Hide tooltips on mouseup
-	if( mToolTip )
-	{
-		mToolTip->setVisible( FALSE );
-	}
-
-	// Also hide hover info on mouseup
-	if (gHoverView)	gHoverView->cancelHover();
-
-	BOOL handled = FALSE;
-
-	mWindow->releaseMouse();
-
-	LLTool *tool = LLToolMgr::getInstance()->getCurrentTool();
-
-	if( tool->clipMouseWhenDown() )
-	{
-		mWindow->setMouseClipping(FALSE);
-	}
-
-	LLMouseHandler* mouse_captor = gFocusMgr.getMouseCapture();
-	if( mouse_captor )
-	{
-		S32 local_x;
-		S32 local_y;
-		mouse_captor->screenPointToLocal( x, y, &local_x, &local_y );
-		if (LLView::sDebugMouseHandling)
-		{
-			llinfos << "Left Mouse Up handled by captor " << mouse_captor->getName() << llendl;
-		}
-
-		return mouse_captor->handleMouseUp(local_x, local_y, mask);
-	}
-
-	LLUICtrl* top_ctrl = gFocusMgr.getTopCtrl();
-	if (top_ctrl)
-	{
-		S32 local_x, local_y;
-		top_ctrl->screenPointToLocal( x, y, &local_x, &local_y );
-		handled = top_ctrl->pointInView(local_x, local_y) && top_ctrl->handleMouseUp(local_x, local_y, mask);
-	}
-
-	if( !handled )
-	{
-		handled = mRootView->handleMouseUp(x, y, mask);
-	}
-
-	if (LLView::sDebugMouseHandling)
-	{
-		if (handled)
-		{
-			llinfos << "Left Mouse Up" << LLView::sMouseHandlerMessage << llendl;
-		}
-		else 
-		{
-			llinfos << "Left Mouse Up not handled by view" << llendl;
-		}
-	}
-
-	if( !handled )
-	{
-		if (tool)
-		{
-			handled = tool->handleMouseUp(x, y, mask);
-		}
-	}
-
-	// Always handled as far as the OS is concerned.
-	return TRUE;
+	BOOL down = FALSE;
+	return handleAnyMouseClick(window,pos,mask,LLMouseHandler::CLICK_LEFT,down);
 }
 
 
 BOOL LLViewerWindow::handleRightMouseDown(LLWindow *window,  LLCoordGL pos, MASK mask)
 {
+<<<<<<< HEAD
 	//zmod copy rclick zoom from phoenix
 	gSavedSettings.setBOOL("zmm_rightmousedown", 1);
 	if ( gAgentCamera.cameraMouselook() && !gSavedSettings.getBOOL("zmm_isinml") )
@@ -1058,6 +981,19 @@ BOOL LLViewerWindow::handleRightMouseDown(LLWindow *window,  LLCoordGL pos, MASK
         gSavedSettings.setF32("zmm_deffov", deffov);
         LLViewerCamera::getInstance()->setDefaultFOV(gSavedSettings.getF32("zmm_deffov") / gSavedSettings.getF32("zmm_mlfov"));
     }
+=======
+	//From Phoenix
+	gSavedSettings.setBOOL("zmm_rightmousedown",1);
+    if(gAgentCamera.cameraMouselook()&&gSavedSettings.getBOOL("zmm_isinml")==0)
+	{
+		llinfos << "zmmisinml set to true" << llendl;
+		gSavedSettings.setBOOL("zmm_isinml",1);
+		F32 deffov=LLViewerCamera::getInstance()->getDefaultFOV();
+		gSavedSettings.setF32("zmm_deffov",deffov);
+		LLViewerCamera::getInstance()->setDefaultFOV(gSavedSettings.getF32("zmm_deffov")/gSavedSettings.getF32("zmm_mlfov"));
+	}
+	
+>>>>>>> a39bf619775fce29521a91e7671205334bab7687
 	S32 x = pos.mX;
 	S32 y = pos.mY;
 	x = llround((F32)x / mDisplayScale.mV[VX]);
@@ -1065,89 +1001,11 @@ BOOL LLViewerWindow::handleRightMouseDown(LLWindow *window,  LLCoordGL pos, MASK
 
 	LLView::sMouseHandlerMessage.clear();
 
-	if (gDebugClicks)
-	{
-		llinfos << "ViewerWindow right mouse down at " << x << "," << y << llendl;
-	}
+	BOOL down = TRUE;
+	BOOL handle = handleAnyMouseClick(window,pos,mask,LLMouseHandler::CLICK_RIGHT,down);
+	if (handle)
+		return handle;
 
-	if (gMenuBarView)
-	{
-		// stop ALT-key access to menu
-		gMenuBarView->resetMenuTrigger();
-	}
-
-	mRightMouseDown = TRUE;
-
-	// Make sure we get a coresponding mouseup event, even if the mouse leaves the window
-	mWindow->captureMouse();
-
-	// Hide tooltips
-	if( mToolTip )
-	{
-		mToolTip->setVisible( FALSE );
-	}
-
-	// Also hide hover info on mousedown
-	if (gHoverView)
-	{
-		gHoverView->cancelHover();
-	}
-
-	// Don't let the user move the mouse out of the window until mouse up.
-	if( LLToolMgr::getInstance()->getCurrentTool()->clipMouseWhenDown() )
-	{
-		mWindow->setMouseClipping(TRUE);
-	}
-
-	LLMouseHandler* mouse_captor = gFocusMgr.getMouseCapture();
-	if( mouse_captor )
-	{
-		S32 local_x;
-		S32 local_y;
-		mouse_captor->screenPointToLocal( x, y, &local_x, &local_y );
-		if (LLView::sDebugMouseHandling)
-		{
-			llinfos << "Right Mouse Down handled by captor " << mouse_captor->getName() << llendl;
-		}
-		return mouse_captor->handleRightMouseDown(local_x, local_y, mask);
-	}
-
-	LLUICtrl* top_ctrl = gFocusMgr.getTopCtrl();
-	if (top_ctrl)
-	{
-		S32 local_x, local_y;
-		top_ctrl->screenPointToLocal( x, y, &local_x, &local_y );
-		if (top_ctrl->pointInView(local_x, local_y))
-		{
-			return top_ctrl->handleRightMouseDown(local_x, local_y, mask);
-		}
-		else
-		{
-			gFocusMgr.setTopCtrl(NULL);
-		}
-	}
-
-	if( mRootView->handleRightMouseDown(x, y, mask) )
-	{
-		if (LLView::sDebugMouseHandling)
-		{
-			llinfos << "Right Mouse Down" << LLView::sMouseHandlerMessage << llendl;
-		}
-		return TRUE;
-	}
-	else if (LLView::sDebugMouseHandling)
-	{
-		llinfos << "Right Mouse Down not handled by view" << llendl;
-	}
-
-	if(LLToolMgr::getInstance()->getCurrentTool()->handleRightMouseDown( x, y, mask ) )
-	{
-		// This is necessary to force clicks in the world to cause edit
-		// boxes that might have keyboard focus to relinquish it, and hence
-		// cause a commit to update their value.  JC
-		gFocusMgr.setKeyboardFocus(NULL);
-		return TRUE;
-	}
 
 	// *HACK: this should be rolled into the composite tool logic, not
 	// hardcoded at the top level.
@@ -1166,6 +1024,7 @@ BOOL LLViewerWindow::handleRightMouseDown(LLWindow *window,  LLCoordGL pos, MASK
 BOOL LLViewerWindow::handleRightMouseUp(LLWindow *window,  LLCoordGL pos, MASK mask)
 {
 	gSavedSettings.setBOOL("zmm_rightmousedown",0);
+<<<<<<< HEAD
     if(gSavedSettings.getBOOL("zmm_isinml") == 1)
 	{
         //llinfos << "zmmisinml set to false" << llendl;
@@ -1249,20 +1108,24 @@ BOOL LLViewerWindow::handleRightMouseUp(LLWindow *window,  LLCoordGL pos, MASK m
 	}
 
 	if( !handled )
+=======
+	if(gSavedSettings.getBOOL("zmm_isinml")==1)
+>>>>>>> a39bf619775fce29521a91e7671205334bab7687
 	{
-		if (tool)
-		{
-			handled = tool->handleRightMouseUp(x, y, mask);
-		}
-	}
-
-	// Always handled as far as the OS is concerned.
-	return TRUE;
+		llinfos << "zmmisinml set to false" << llendl;
+		gSavedSettings.setBOOL("zmm_isinml",0);
+		LLViewerCamera::getInstance()->setDefaultFOV(gSavedSettings.getF32("zmm_deffov"));
+    }
+    
+	BOOL down = FALSE;
+	return handleAnyMouseClick(window,pos,mask,LLMouseHandler::CLICK_RIGHT,down);
 }
 
 BOOL LLViewerWindow::handleMiddleMouseDown(LLWindow *window,  LLCoordGL pos, MASK mask)
 {
+	BOOL down = TRUE;
 	gVoiceClient->middleMouseState(true);
+	handleAnyMouseClick(window,pos,mask,LLMouseHandler::CLICK_MIDDLE,down);
 
 	// Always handled as far as the OS is concerned.
 	return TRUE;
@@ -1270,7 +1133,9 @@ BOOL LLViewerWindow::handleMiddleMouseDown(LLWindow *window,  LLCoordGL pos, MAS
 
 BOOL LLViewerWindow::handleMiddleMouseUp(LLWindow *window,  LLCoordGL pos, MASK mask)
 {
+	BOOL down = FALSE;
 	gVoiceClient->middleMouseState(false);
+	handleAnyMouseClick(window,pos,mask,LLMouseHandler::CLICK_MIDDLE,down);
 
 	// Always handled as far as the OS is concerned.
 	return TRUE;
@@ -1463,7 +1328,7 @@ BOOL LLViewerWindow::handleActivate(LLWindow *window, BOOL activated)
 				{
 					// if we're in world, show a progress bar to hide reloading of textures
 					llinfos << "Restoring GL during activate" << llendl;
-					restoreGL("Restoring...");
+					restoreGL(LLTrans::getString("ProgressRestoring"));
 				}
 				else
 				{
@@ -1638,6 +1503,27 @@ void LLViewerWindow::handlePauseWatchdog(LLWindow *window)
 	LLAppViewer::instance()->pauseMainloopTimeout();
 }
 
+//virtual
+std::string LLViewerWindow::translateString(const char* tag)
+{
+	return LLTrans::getString( std::string(tag) );
+}
+
+//virtual
+std::string LLViewerWindow::translateString(const char* tag,
+		const std::map<std::string, std::string>& args)
+{
+	// LLTrans uses a special subclass of std::string for format maps,
+	// but we must use std::map<> in these callbacks, otherwise we create
+	// a dependency between LLWindow and LLFormatMapString.  So copy the data.
+	LLStringUtil::format_map_t args_copy;
+	std::map<std::string,std::string>::const_iterator it = args.begin();
+	for ( ; it != args.end(); ++it)
+	{
+		args_copy[it->first] = it->second;
+	}
+	return LLTrans::getString( std::string(tag), args_copy);
+}
 
 //
 // Classes
@@ -1655,6 +1541,7 @@ LLViewerWindow::LLViewerWindow(
 	mWindowRectRaw(0, height, width, 0),
 	mWindowRectScaled(0, height, width, 0),
 	mLeftMouseDown(FALSE),
+	mMiddleMouseDown(FALSE),
 	mRightMouseDown(FALSE),
 	mToolTip(NULL),
 	mToolTipBlocked(FALSE),
@@ -1692,14 +1579,21 @@ LLViewerWindow::LLViewerWindow(
 		ignore_pixel_depth,
 		gSavedSettings.getBOOL("RenderUseFBO") ? 0 : gSavedSettings.getU32("RenderFSAASamples")); //don't use window level anti-aliasing if FBOs are enabled
 
+	if (!LLViewerShaderMgr::sInitialized)
+	{ //immediately initialize shaders
+		LLViewerShaderMgr::sInitialized = TRUE;
+		LLViewerShaderMgr::instance()->setShaders();
+	}
+
 	if (NULL == mWindow)
 	{
-		LLSplashScreen::update("Graphics Initialization Failed. Please Update Your Graphics Driver!");
+		LLSplashScreen::update(LLTrans::getString("StartupRequireDriverUpdate"));
 	
 		LL_WARNS("Window") << "Failed to create window, to be shutting Down, be sure your graphics driver is updated." << llendl ;
 
 		ms_sleep(5000) ; //wait for 5 seconds.
-		LLSplashScreen::update("Shutting down...");
+
+		LLSplashScreen::update(LLTrans::getString("ShuttingDown"));
 #if LL_LINUX || LL_SOLARIS
 		llwarns << "Unable to create window, be sure screen is set at 32-bit color and your graphics driver is configured correctly.  See README-linux.txt or README-solaris.txt for further information."
 				<< llendl;
@@ -1788,14 +1682,19 @@ LLViewerWindow::LLViewerWindow(
 	LLViewerTextureManager::init() ;
 	gBumpImageList.init();
 
-	// Create container for all sub-views
-	mRootView = new LLRootView("root", mWindowRectScaled, FALSE);
-
+	// Init font system, but don't actually load the fonts yet
+	// because our window isn't onscreen and they take several
+	// seconds to parse.
 	if (!gNoRender)
 	{
-		// Init default fonts
-		initFonts();
+	LLFontGL::initClass( gSavedSettings.getF32("FontScreenDPI"),
+								mDisplayScale.mV[VX],
+								mDisplayScale.mV[VY],
+								gDirUtilp->getAppRODataDir(),
+								LLUICtrlFactory::getXUIPaths());
 	}
+	// Create container for all sub-views
+	mRootView = new LLRootView("root", mWindowRectScaled, FALSE);
 
 	// Make avatar head look forward at start
 	mCurrentMousePoint.mX = getWindowWidthScaled() / 2;
@@ -1816,32 +1715,30 @@ LLViewerWindow::LLViewerWindow(
 void LLViewerWindow::initGLDefaults()
 {
 	gGL.setSceneBlendType(LLRender::BT_ALPHA);
-	glColorMaterial( GL_FRONT_AND_BACK, GL_AMBIENT_AND_DIFFUSE );
 
-	F32 ambient[4] = {0.f,0.f,0.f,0.f };
-	F32 diffuse[4] = {1.f,1.f,1.f,1.f };
-	glMaterialfv(GL_FRONT_AND_BACK,GL_AMBIENT,ambient);
-	glMaterialfv(GL_FRONT_AND_BACK,GL_DIFFUSE,diffuse);
-	
+	if (!LLGLSLShader::sNoFixedFunction)
+	{ //initialize fixed function state
+		glColorMaterial( GL_FRONT_AND_BACK, GL_AMBIENT_AND_DIFFUSE );
+
+		glMaterialfv(GL_FRONT_AND_BACK,GL_AMBIENT,LLColor4::black.mV);
+		glMaterialfv(GL_FRONT_AND_BACK,GL_DIFFUSE,LLColor4::white.mV);
+
+		// lights for objects
+		glShadeModel( GL_SMOOTH );
+
+		gGL.getTexUnit(0)->enable(LLTexUnit::TT_TEXTURE);
+		gGL.getTexUnit(0)->setTextureBlendType(LLTexUnit::TB_MULT);
+	}
+
 	glPixelStorei(GL_PACK_ALIGNMENT,1);
 	glPixelStorei(GL_UNPACK_ALIGNMENT,1);
 
-	gGL.getTexUnit(0)->enable(LLTexUnit::TT_TEXTURE);
-
-	// lights for objects
-	glShadeModel( GL_SMOOTH );
-
-	glLightModelfv(GL_LIGHT_MODEL_AMBIENT, ambient);
-	
-	gGL.getTexUnit(0)->setTextureBlendType(LLTexUnit::TB_MULT);
-
+	gGL.setAmbientLightColor(LLColor4::black);
+		
 	glCullFace(GL_BACK);
 
 	// RN: Need this for translation and stretch manip.
-	gCone.prerender();
 	gBox.prerender();
-	gSphere.prerender();
-	gCylinder.prerender();
 }
 
 void LLViewerWindow::initBase()
@@ -2275,7 +2172,7 @@ void LLViewerWindow::shutdownGL()
 	llinfos << "Cleaning up select manager" << llendl;
 	LLSelectMgr::getInstance()->cleanup();
 
-	LLVertexBuffer::cleanupClass();
+
 
 	llinfos << "Stopping GL during shutdown" << llendl;
 	if (!gNoRender)
@@ -2285,6 +2182,10 @@ void LLViewerWindow::shutdownGL()
 	}
 
 	gGL.shutdown();
+
+	LLVertexBuffer::cleanupClass();
+
+	llinfos << "LLVertexBuffer cleaned." << llendl ;
 }
 
 // shutdownViews() and shutdownGL() need to be called first
@@ -2397,7 +2298,7 @@ void LLViewerWindow::reshape(S32 width, S32 height)
 		// clear font width caches
 		if (display_scale_changed)
 		{
-			LLHUDText::reshape();
+			LLHUDObject::reshapeAll();
 		}
 
 		sendShapeToSim();
@@ -2492,13 +2393,21 @@ void LLViewerWindow::drawDebugText()
 {
 	gGL.color4f(1,1,1,1);
 	gGL.pushMatrix();
+	if (LLGLSLShader::sNoFixedFunction)
+	{
+		gUIProgram.bind();
+	}
 	{
 		// scale view by UI global scale factor and aspect ratio correction factor
-		glScalef(mDisplayScale.mV[VX], mDisplayScale.mV[VY], 1.f);
+		gGL.scalef(mDisplayScale.mV[VX], mDisplayScale.mV[VY], 1.f);
 		mDebugText->draw();
 	}
 	gGL.popMatrix();
 	gGL.flush();
+	if (LLGLSLShader::sNoFixedFunction)
+	{
+		gUIProgram.unbind();
+	}
 }
 
 void LLViewerWindow::draw()
@@ -2513,9 +2422,9 @@ void LLViewerWindow::draw()
 
 	LLUI::setLineWidth(1.f);
 	// Reset any left-over transforms
-	glMatrixMode(GL_MODELVIEW);
+	gGL.matrixMode(LLRender::MM_MODELVIEW);
 	
-	glLoadIdentity();
+	gGL.loadIdentity();
 
 	//S32 screen_x, screen_y;
 
@@ -2526,10 +2435,10 @@ void LLViewerWindow::draw()
 		// draw timecode block
 		std::string text;
 
-		glLoadIdentity();
+		gGL.loadIdentity();
 
 		microsecondsToTimecodeString(gFrameTime,text);
-		const LLFontGL* font = LLResMgr::getInstance()->getRes( LLFONT_SANSSERIF );
+		const LLFontGL* font = LLFontGL::getFontSansSerif();
 		font->renderUTF8(text, 0,
 						llround((getWindowWidthScaled()/2)-100.f),
 						llround((getWindowHeightScaled()-60.f)),
@@ -2546,8 +2455,9 @@ void LLViewerWindow::draw()
 	}
 	gGL.pushMatrix();
 	{
+		
 		// scale view by UI global scale factor and aspect ratio correction factor
-		glScalef(mDisplayScale.mV[VX], mDisplayScale.mV[VY], 1.f);
+		gGL.scalef(mDisplayScale.mV[VX], mDisplayScale.mV[VY], 1.f);
 
 		LLVector2 old_scale_factor = LLUI::sGLScaleFactor;
 		// apply camera zoom transform (for high res screenshots)
@@ -2559,10 +2469,10 @@ void LLViewerWindow::draw()
 			int pos_y = sub_region / llceil(zoom_factor);
 			int pos_x = sub_region - (pos_y*llceil(zoom_factor));
 			// offset for this tile
-			glTranslatef((F32)getWindowWidthScaled() * -(F32)pos_x, 
+			gGL.translatef((F32)getWindowWidthScaled() * -(F32)pos_x, 
 						(F32)getWindowHeightScaled() * -(F32)pos_y, 
 						0.f);
-			glScalef(zoom_factor, zoom_factor, 1.f);
+			gGL.scalef(zoom_factor, zoom_factor, 1.f);
 			LLUI::sGLScaleFactor *= zoom_factor;
 		}
 
@@ -2586,7 +2496,7 @@ void LLViewerWindow::draw()
 			S32 screen_x, screen_y;
 			top_ctrl->localPointToScreen(0, 0, &screen_x, &screen_y);
 
-			glMatrixMode(GL_MODELVIEW);
+			gGL.matrixMode(LLRender::MM_MODELVIEW);
 			LLUI::pushMatrix();
 			LLUI::translate( (F32) screen_x, (F32) screen_y, 0.f);
 			top_ctrl->draw();	
@@ -2598,7 +2508,7 @@ void LLViewerWindow::draw()
 		// of the screen.
 		if( mToolTip && mToolTip->getVisible() && !mToolTipBlocked )
 		{
-			glMatrixMode(GL_MODELVIEW);
+			gGL.matrixMode(LLRender::MM_MODELVIEW);
 			LLUI::pushMatrix();
 			{
 				S32 tip_height = mToolTip->getRect().getHeight();
@@ -2968,7 +2878,7 @@ void LLViewerWindow::moveCursorToCenter()
 	mLastMousePoint.set(x,y);
 	mCurrentMouseDelta.set(0,0);	
 
-	LLUI::setCursorPositionScreen(x, y);	
+	LLUI::setMousePositionScreen(x, y);	
 }
 
 //////////////////////////////////////////////////////////////////////
@@ -3501,17 +3411,17 @@ void LLViewerWindow::renderSelections( BOOL for_gl_pick, BOOL pick_parcel_walls,
 			LLBBox hud_bbox = gAgentAvatarp->getHUDBBox();
 
 			// set up transform to encompass bounding box of HUD
-			glMatrixMode(GL_PROJECTION);
-			glPushMatrix();
-			glLoadIdentity();
+			gGL.matrixMode(LLRender::MM_PROJECTION);
+			gGL.pushMatrix();
+			gGL.loadIdentity();
 			F32 depth = llmax(1.f, hud_bbox.getExtentLocal().mV[VX] * 1.1f);
-			glOrtho(-0.5f * LLViewerCamera::getInstance()->getAspect(), 0.5f * LLViewerCamera::getInstance()->getAspect(), -0.5f, 0.5f, 0.f, depth);
+			gGL.ortho(-0.5f * LLViewerCamera::getInstance()->getAspect(), 0.5f * LLViewerCamera::getInstance()->getAspect(), -0.5f, 0.5f, 0.f, depth);
 			
-			glMatrixMode(GL_MODELVIEW);
-			glPushMatrix();
-			glLoadIdentity();
-			glLoadMatrixf(OGL_TO_CFR_ROTATION);		// Load Cory's favorite reference frame
-			glTranslatef(-hud_bbox.getCenterLocal().mV[VX] + (depth *0.5f), 0.f, 0.f);
+			gGL.matrixMode(LLRender::MM_MODELVIEW);
+			gGL.pushMatrix();
+			gGL.loadIdentity();
+			gGL.loadMatrix(OGL_TO_CFR_ROTATION);		// Load Cory's favorite reference frame
+			gGL.translatef(-hud_bbox.getCenterLocal().mV[VX] + (depth *0.5f), 0.f, 0.f);
 		}
 
 		// Render light for editing
@@ -3521,12 +3431,12 @@ void LLViewerWindow::renderSelections( BOOL for_gl_pick, BOOL pick_parcel_walls,
 			LLGLEnable gls_blend(GL_BLEND);
 			LLGLEnable gls_cull(GL_CULL_FACE);
 			LLGLDepthTest gls_depth(GL_TRUE, GL_FALSE);
-			glMatrixMode(GL_MODELVIEW);
-			glPushMatrix();
+			gGL.matrixMode(LLRender::MM_MODELVIEW);
+			gGL.pushMatrix();
 			if (selection->getSelectType() == SELECT_TYPE_HUD)
 			{
 				F32 zoom = gAgentCamera.mHUDCurZoom;
-				glScalef(zoom, zoom, zoom);
+				gGL.scalef(zoom, zoom, zoom);
 			}
 
 			struct f : public LLSelectedObjectFunctor
@@ -3537,33 +3447,33 @@ void LLViewerWindow::renderSelections( BOOL for_gl_pick, BOOL pick_parcel_walls,
 					if (drawable && drawable->isLight())
 					{
 						LLVOVolume* vovolume = drawable->getVOVolume();
-						glPushMatrix();
+						gGL.pushMatrix();
 
 						LLVector3 center = drawable->getPositionAgent();
-						glTranslatef(center[0], center[1], center[2]);
+						gGL.translatef(center[0], center[1], center[2]);
 						F32 scale = vovolume->getLightRadius();
-						glScalef(scale, scale, scale);
+						gGL.scalef(scale, scale, scale);
 
 						LLColor4 color(vovolume->getLightColor(), .5f);
-						glColor4fv(color.mV);
+						gGL.color4fv(color.mV);
 					
-						F32 pixel_area = 100000.f;
+						//F32 pixel_area = 100000.f;
 						// Render Outside
-						gSphere.render(pixel_area);
+						gSphere.render();
 
 						// Render Inside
 						glCullFace(GL_FRONT);
-						gSphere.render(pixel_area);
+						gSphere.render();
 						glCullFace(GL_BACK);
 					
-						glPopMatrix();
+						gGL.popMatrix();
 					}
 					return true;
 				}
 			} func;
 			LLSelectMgr::getInstance()->getSelection()->applyToObjects(&func);
 			
-			glPopMatrix();
+			gGL.popMatrix();
 		}				
 		
 		// NOTE: The average position for the axis arrows of the selected objects should
@@ -3636,11 +3546,11 @@ void LLViewerWindow::renderSelections( BOOL for_gl_pick, BOOL pick_parcel_walls,
 			}
 			if (selection->getSelectType() == SELECT_TYPE_HUD && selection->getObjectCount())
 			{
-				glMatrixMode(GL_PROJECTION);
-				glPopMatrix();
+				gGL.matrixMode(LLRender::MM_PROJECTION);
+				gGL.popMatrix();
 
-				glMatrixMode(GL_MODELVIEW);
-				glPopMatrix();
+				gGL.matrixMode(LLRender::MM_MODELVIEW);
+				gGL.popMatrix();
 				stop_glerror();
 			}
 		}
@@ -4230,7 +4140,7 @@ static S32 BORDERWIDTH = 0;
 void LLViewerWindow::movieSize(S32 new_width, S32 new_height)
 {
 	LLCoordScreen size;
-	gViewerWindow->mWindow->getSize(&size);
+	gViewerWindow->getWindow()->getSize(&size);
 	if (  (size.mX != new_width + BORDERWIDTH)
 		||(size.mY != new_height + BORDERHEIGHT))
 	{
@@ -4251,7 +4161,7 @@ void LLViewerWindow::movieSize(S32 new_width, S32 new_height)
 		}
 		else
 		{
-			gViewerWindow->mWindow->setSize(new_size);
+			gViewerWindow->getWindow()->setSize(new_size);
 		}
 	}
 }
@@ -4444,6 +4354,19 @@ BOOL LLViewerWindow::rawSnapshot(LLImageRaw *raw, S32 image_width, S32 image_hei
 	{
 		return FALSE;
 	}
+	//check if there is enough memory for the snapshot image
+	if(LLPipeline::sMemAllocationThrottled)
+	{
+		return FALSE ; //snapshot taking is disabled due to memory restriction.
+	}
+	if(image_width * image_height > (1 << 22)) //if snapshot image is larger than 2K by 2K
+	{
+		if(!LLMemory::tryToAlloc(NULL, image_width * image_height * 3))
+		{
+			llwarns << "No enough memory to take the snapshot with size (w : h): " << image_width << " : " << image_height << llendl ;
+			return FALSE ; //there is no enough memory for taking this snapshot.
+		}
+	}
 
 	// PRE SNAPSHOT
 	gDisplaySwapBuffers = FALSE;
@@ -4588,7 +4511,7 @@ BOOL LLViewerWindow::rawSnapshot(LLImageRaw *raw, S32 image_width, S32 image_hei
 		{
 		//rescale fonts
 		initFonts(scale_factor);
-		LLHUDText::reshape();
+		LLHUDObject::reshapeAll();
 		}
 	}
 
@@ -4702,7 +4625,7 @@ BOOL LLViewerWindow::rawSnapshot(LLImageRaw *raw, S32 image_width, S32 image_hei
 	if (high_res && (show_ui || !hide_hud))
 	{
 		initFonts(1.f);
-		LLHUDText::reshape();
+		LLHUDObject::reshapeAll();
 	}
 
 	// Pre-pad image to number of pixels such that the line length is a multiple of 4 bytes (for BMP encoding)
@@ -4741,7 +4664,7 @@ BOOL LLViewerWindow::rawSnapshot(LLImageRaw *raw, S32 image_width, S32 image_hei
 		gPipeline.resetDrawOrders();
 	}
 
-	if (high_res && (show_ui || !hide_hud))
+	if (high_res)
 	{
 		send_agent_resume();
 	}
@@ -4761,8 +4684,22 @@ void LLViewerWindow::destroyWindow()
 
 void LLViewerWindow::drawMouselookInstructions()
 {
+	static const F32 INSTRUCTIONS_OPAQUE_TIME = 10.f;
+	static const F32 INSTRUCTIONS_FADE_TIME = 5.f;
+
+	F32 mouselook_duration = gAgentCamera.getMouseLookDuration();
+	if( mouselook_duration >= (INSTRUCTIONS_OPAQUE_TIME+INSTRUCTIONS_OPAQUE_TIME) )
+		return;
+
+	F32 alpha = 1.f;
+
+	if( mouselook_duration > INSTRUCTIONS_OPAQUE_TIME)	//instructions are fading
+	{
+		alpha = (F32) sqrt(1.f-pow(((mouselook_duration-INSTRUCTIONS_OPAQUE_TIME)/INSTRUCTIONS_FADE_TIME),2.f));
+	}
+
 	// Draw instructions for mouselook ("Press ESC to leave Mouselook" in a box at the top of the screen.)
-	const std::string instructions = "Press ESC to leave Mouselook.";
+	const std::string instructions = LLTrans::getString("LeaveMouselook");
 	const LLFontGL* font = LLResMgr::getInstance()->getRes( LLFONT_SANSSERIF );
 
 	const S32 INSTRUCTIONS_PAD = 5;
@@ -4775,7 +4712,7 @@ void LLViewerWindow::drawMouselookInstructions()
 
 	{
 		gGL.getTexUnit(0)->unbind(LLTexUnit::TT_TEXTURE);
-		gGL.color4f( 0.9f, 0.9f, 0.9f, 1.0f );
+		gGL.color4f( 0.9f, 0.9f, 0.9f, alpha );
 		gl_rect_2d( instructions_rect );
 	}
 	
@@ -4783,7 +4720,7 @@ void LLViewerWindow::drawMouselookInstructions()
 		instructions, 0,
 		instructions_rect.mLeft + INSTRUCTIONS_PAD,
 		instructions_rect.mTop - INSTRUCTIONS_PAD,
-		LLColor4( 0.0f, 0.0f, 0.0f, 1.f ),
+		LLColor4( 0.0f, 0.0f, 0.0f, alpha ),
 		LLFontGL::LEFT, LLFontGL::TOP);
 }
 
@@ -4965,14 +4902,11 @@ void LLViewerWindow::stopGL(BOOL save_state)
 			gPipeline.destroyGL();
 		}
 		
-		gCone.cleanupGL();
 		gBox.cleanupGL();
-		gSphere.cleanupGL();
-		gCylinder.cleanupGL();
 		
-		if(gPostProcess)
+		if(LLPostProcess::instanceExists())
 		{
-			gPostProcess->invalidate();
+			LLPostProcess::getInstance()->invalidate();
 		}
 
 		gTextureList.destroyGL(save_state);
@@ -5040,11 +4974,13 @@ void LLViewerWindow::restoreGL(const std::string& progress_message)
 void LLViewerWindow::initFonts(F32 zoom_factor)
 {
 	LLFontGL::destroyAllGL();
-	LLFontGL::initDefaultFonts( gSavedSettings.getF32("FontScreenDPI"),
+	// Initialize with possibly different zoom factor
+	LLFontGL::initClass( gSavedSettings.getF32("FontScreenDPI"),
 								mDisplayScale.mV[VX] * zoom_factor,
 								mDisplayScale.mV[VY] * zoom_factor,
 								gDirUtilp->getAppRODataDir(),
 								LLUICtrlFactory::getXUIPaths());
+	LLFontGL::loadDefaultFonts();
 }
 void LLViewerWindow::toggleFullscreen(BOOL show_progress)
 {
@@ -5169,7 +5105,7 @@ void LLViewerWindow::restartDisplay(BOOL show_progress_bar)
 	stopGL();
 	if (show_progress_bar)
 	{
-		restoreGL("Changing Resolution...");
+		restoreGL(LLTrans::getString("ProgressChangingResolution"));
 	}
 	else
 	{
@@ -5256,7 +5192,7 @@ BOOL LLViewerWindow::changeDisplaySettings(BOOL fullscreen, LLCoordScreen size, 
 	llinfos << "Restoring GL during resolution change" << llendl;
 	if (show_progress_bar)
 	{
-		restoreGL("Changing Resolution...");
+		restoreGL(LLTrans::getString("ProgressChangingResolution"));
 	}
 	else
 	{

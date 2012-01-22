@@ -18,6 +18,7 @@
 #include "llagent.h"
 #include "llcallbacklist.h"
 #include "llstartup.h"
+#include "llviewerfoldertype.h"
 #include "llviewerobject.h"
 #include "llvoavatar.h"
 
@@ -28,9 +29,6 @@
 #include "rlvhandler.h"
 
 #include "boost/algorithm/string.hpp"
-
-// Only defined in llinventorymodel.cpp
-extern const char* NEW_CATEGORY_NAME;
 
 // ============================================================================
 // Static variable initialization
@@ -178,7 +176,7 @@ void RlvInventory::fetchWornItem(const LLUUID& idItem)
 { 
 	if (idItem.notNull()) 
 	{
-		LLInventoryFetchObserver::item_ref_t idItems; 
+		uuid_vec_t idItems; 
 		idItems.push_back(idItem);
 		RlvItemFetcher itemFetcher;
 		itemFetcher.fetchItems(idItems);
@@ -232,7 +230,7 @@ LLViewerInventoryCategory* RlvInventory::getSharedRoot() const
 	if (gInventory.isInventoryUsable())
 	{
 		LLInventoryModel::cat_array_t* pFolders; LLInventoryModel::item_array_t* pItems;
-		gInventory.getDirectDescendentsOf(gAgent.getInventoryRootID(), pFolders, pItems);
+		gInventory.getDirectDescendentsOf(gInventory.getRootFolderID(), pFolders, pItems);
 		if (pFolders)
 		{
 			// NOTE: we might have multiple #RLV folders so we'll just go with the first one we come across
@@ -308,7 +306,7 @@ std::string RlvInventory::getSharedPath(const LLViewerInventoryCategory* pFolder
 		return std::string();
 
 	const LLUUID& idRLV  = pRlvRoot->getUUID();
-	const LLUUID& idRoot = gAgent.getInventoryRootID();
+	const LLUUID& idRoot = gInventory.getRootFolderID();
 	std::string strPath;
 
 	// Walk up the tree until we reach the top
@@ -394,6 +392,7 @@ void RlvRenameOnWearObserver::doneIdle()
 			continue;
 		}
 
+		static const std::string &new_category_name = LLViewerFolderType::lookupNewCategoryName(LLFolderType::FT_NONE);
 		for (S32 idxItem = 0, cntItem = items.count(); idxItem < cntItem; idxItem++)
 		{
 			LLViewerInventoryItem* pItem = items.get(idxItem);
@@ -428,7 +427,7 @@ void RlvRenameOnWearObserver::doneIdle()
 					std::string strFolderName = ".(" + strAttachPt + ")";
 
 					// Rename the item's parent folder if it's called "New Folder", isn't directly under #RLV and contains exactly 1 object
-					if ( (NEW_CATEGORY_NAME == pFolder->getName()) && 
+					if ( (new_category_name == pFolder->getName()) && 
 						 (pFolder->getParentUUID() != pRlvRoot->getUUID()) && 
 						 (1 == RlvInventory::getDirectDescendentsCount(pFolder, LLAssetType::AT_OBJECT)) )
 					{
@@ -617,7 +616,7 @@ RlvForceWear::EWearAction RlvWearableItemCollector::getWearAction(const LLUUID& 
 	while ((itCurFolder = m_WearActionMap.find(idCurFolder)) == m_WearActionMap.end())
 	{
 		const LLViewerInventoryCategory* pFolder = gInventory.getCategory(idCurFolder);
-		if ((!pFolder) || (gAgent.getInventoryRootID() == pFolder->getParentUUID()))
+		if ((!pFolder) || (gInventory.getRootFolderID() == pFolder->getParentUUID()))
 			break;
 		idCurFolder = pFolder->getParentUUID();
 	}

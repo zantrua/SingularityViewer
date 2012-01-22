@@ -52,8 +52,9 @@
 #include "llsliderctrl.h"
 #include "lltabcontainervertical.h"
 #include "llviewerwindow.h"
-#include "llinventorymodel.h"
-#include "llinventoryview.h"
+#include "llinventoryfunctions.h"
+#include "llinventoryobserver.h"
+#include "llinventoryicon.h"
 #include "lltextbox.h"
 #include "lllineeditor.h"
 #include "llviewertexturelist.h"
@@ -82,7 +83,7 @@
 
 using namespace LLVOAvatarDefines;
 
-//*TODO:translate : The ui xml for this really needs to be integrated with the appearance paramaters
+// *TODO:translate : The ui xml for this really needs to be integrated with the appearance paramaters
 
 // Globals
 LLFloaterCustomize* gFloaterCustomize = NULL;
@@ -511,7 +512,7 @@ BOOL LLPanelEditWearable::postBuild()
 	/*std::string icon_name = (asset_type == LLAssetType::AT_CLOTHING ?
 										 "inv_item_clothing.tga" :
 										 "inv_item_skin.tga" );*/
-	std::string icon_name = get_item_icon_name(asset_type,LLInventoryType::IT_WEARABLE,mType,FALSE);
+	std::string icon_name = LLInventoryIcon::getIconName(asset_type,LLInventoryType::IT_WEARABLE,mType,FALSE);
 
 	childSetValue("icon", icon_name);
 
@@ -1041,7 +1042,7 @@ void LLPanelEditWearable::draw()
 			
 		std::string path;
 		const LLUUID& item_id = gAgentWearables.getWearableItemID( wearable->getType() );
-		gInventory.appendPath(item_id, path);
+		append_path(item_id, path);
 		childSetVisible("path", TRUE);
 		childSetTextArg("path", "[PATH]", path);
 
@@ -1054,7 +1055,7 @@ void LLPanelEditWearable::draw()
 
 		std::string path;
 		const LLUUID& item_id = gAgentWearables.getWearableItemID( wearable->getType() );
-		gInventory.appendPath(item_id, path);
+		append_path(item_id, path);
 		childSetVisible("path", TRUE);
 		childSetTextArg("path", "[PATH]", path);
 
@@ -1472,28 +1473,28 @@ void LLScrollingPanelParam::draw()
 	// Draw the hints over the "less" and "more" buttons.
 	if(mHintMin)
 	{
-		glPushMatrix();
+		gGL.pushMatrix();
 		{
 			const LLRect& r = mHintMin->getRect();
 			F32 left = (F32)(r.mLeft + BTN_BORDER);
 			F32 bot  = (F32)(r.mBottom + BTN_BORDER);
-			glTranslatef(left, bot, 0.f);
+			gGL.translatef(left, bot, 0.f);
 			mHintMin->draw();
 		}
-		glPopMatrix();
+		gGL.popMatrix();
 	}
 
 	if(mHintMax)
 	{
-		glPushMatrix();
+		gGL.pushMatrix();
 		{
 			const LLRect& r = mHintMax->getRect();
 			F32 left = (F32)(r.mLeft + BTN_BORDER);
 			F32 bot  = (F32)(r.mBottom + BTN_BORDER);
-			glTranslatef(left, bot, 0.f);
+			gGL.translatef(left, bot, 0.f);
 			mHintMax->draw();
 		}
-		glPopMatrix();
+		gGL.popMatrix();
 	}
 
 
@@ -2694,7 +2695,7 @@ void LLFloaterCustomize::generateVisualParamHints(LLViewerJointMesh* joint_mesh,
 
 void LLFloaterCustomize::setWearable(LLWearableType::EType type, LLWearable* wearable, U32 perm_mask, BOOL is_complete)
 {
-	llassert( type < WT_COUNT );
+	llassert( type < LLWearableType::WT_COUNT );
 	gSavedSettings.setU32("AvatarSex", (gAgentAvatarp->getSex() == SEX_MALE) );
 	
 	LLPanelEditWearable* panel = mWearablePanelList[ type ];
@@ -2785,7 +2786,7 @@ public:
 void LLFloaterCustomize::fetchInventory()
 {
 	// Fetch currently worn items
-	LLInventoryFetchObserver::item_ref_t ids;
+	uuid_vec_t ids;
 	LLUUID item_id;
 	for(S32 type = (S32)LLWearableType::WT_SHAPE; type < (S32)LLWearableType::WT_COUNT; ++type)
 	{

@@ -980,17 +980,18 @@ void LLPanelRegionDebugInfo::onClickTopScripts(void* data)
 // static
 void LLPanelRegionDebugInfo::onClickRestart(void* data)
 {
+	LLPanelRegionDebugInfo* self = (LLPanelRegionDebugInfo*)data;
 	LLNotificationsUtil::add("ConfirmRestart", LLSD(), LLSD(), 
-		boost::bind(&LLPanelRegionDebugInfo::callbackRestart, (LLPanelRegionDebugInfo*)data, _1, _2));
+		boost::bind(&LLPanelRegionDebugInfo::callbackRestart, (LLPanelRegionDebugInfo*)data, _1, _2, self->getChild<LLSpinCtrl>("rcount")->getValue().asInteger()));
 }
 
-bool LLPanelRegionDebugInfo::callbackRestart(const LLSD& notification, const LLSD& response)
+bool LLPanelRegionDebugInfo::callbackRestart(const LLSD& notification, const LLSD& response, S32 seconds)
 {
 	S32 option = LLNotificationsUtil::getSelectedOption(notification, response);
 	if (option != 0) return false;
 
 	strings_t strings;
-	strings.push_back("120");
+	strings.push_back(llformat("%d",seconds));
 	LLUUID invoice(LLFloaterRegionInfo::getLastInvoice());
 	sendEstateOwnerMessage(gMessageSystem, "restart", invoice, strings);
 	return false;
@@ -1091,11 +1092,10 @@ BOOL LLPanelRegionTextureInfo::sendUpdate()
 	llinfos << "LLPanelRegionTextureInfo::sendUpdate()" << llendl;
 
 	// Make sure user hasn't chosen wacky textures.
-	//  -Revolution  Allow 'wacky' things
-	//if (!validateTextureSizes())
-	//{
-	//	return FALSE;
-	//}
+	if (!validateTextureSizes())
+	{
+		return FALSE;
+	}
 
 	LLTextureCtrl* texture_ctrl;
 	std::string buffer;

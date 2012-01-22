@@ -78,6 +78,8 @@ void LLToolComposite::setCurrentTool( LLTool* new_tool )
 {
 	if( mCur != new_tool )
 	{
+		if(new_tool)
+			lldebugs << "Current Tool: " << new_tool->getName() << llendl;
 		if( mSelected )
 		{
 			mCur->handleDeselect();
@@ -800,7 +802,11 @@ void	LLToolCompGun::handleDeselect()
 
 BOOL LLToolCompGun::handleScrollWheel(S32 x, S32 y, S32 clicks)
 {
+<<<<<<< HEAD
      //::MOYMOD::
+=======
+	//::MOYMOD::
+>>>>>>> a39bf619775fce29521a91e7671205334bab7687
     if(gSavedSettings.getBOOL("zmm_isinml") == 1)
 	{
         if(clicks > 0)

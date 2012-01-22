@@ -34,9 +34,15 @@
 #define LL_LLVERSIONVIEWER_H
 
 const S32 LL_VERSION_MAJOR = 1;
+<<<<<<< HEAD
 const S32 LL_VERSION_MINOR = 5;
 const S32 LL_VERSION_PATCH = 10;
 const S32 LL_VERSION_BUILD = 12;
+=======
+const S32 LL_VERSION_MINOR = 6;
+const S32 LL_VERSION_PATCH = 0;
+const S32 LL_VERSION_BUILD = 3;
+>>>>>>> a39bf619775fce29521a91e7671205334bab7687
 
 const char * const LL_CHANNEL = "Neon Rain";
 

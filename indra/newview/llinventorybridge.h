@@ -35,8 +35,9 @@
 
 #include "llcallingcard.h"
 #include "llfloaterproperties.h"
-#include "llfolderview.h"
+#include "llfoldervieweventlistener.h"
 #include "llinventorymodel.h"
+#include "llinventoryobserver.h"
 //#include "llinventoryview.h"
 #include "llviewercontrol.h"
 #include "llwearable.h"
@@ -47,63 +48,7 @@ class LLMenuGL;
 class LLCallingCardObserver;
 class LLViewerJointAttachment;
 
-enum EInventoryIcon
-{
-	TEXTURE_ICON_NAME,
-	SOUND_ICON_NAME,
-	CALLINGCARD_ONLINE_ICON_NAME,
-	CALLINGCARD_OFFLINE_ICON_NAME,
-	LANDMARK_ICON_NAME,
-	LANDMARK_VISITED_ICON_NAME,
-	SCRIPT_ICON_NAME,
-	CLOTHING_ICON_NAME,
-	OBJECT_ICON_NAME,
-	OBJECT_MULTI_ICON_NAME,
-	NOTECARD_ICON_NAME,
-	BODYPART_ICON_NAME,
-	SNAPSHOT_ICON_NAME,
-
-	BODYPART_SHAPE_ICON_NAME,
-	BODYPART_SKIN_ICON_NAME,
-	BODYPART_HAIR_ICON_NAME,
-	BODYPART_EYES_ICON_NAME,
-	CLOTHING_SHIRT_ICON_NAME,
-	CLOTHING_PANTS_ICON_NAME,
-	CLOTHING_SHOES_ICON_NAME,
-	CLOTHING_SOCKS_ICON_NAME,
-	CLOTHING_JACKET_ICON_NAME,
-	CLOTHING_GLOVES_ICON_NAME,
-	CLOTHING_UNDERSHIRT_ICON_NAME,
-	CLOTHING_UNDERPANTS_ICON_NAME,
-	CLOTHING_SKIRT_ICON_NAME,
-	CLOTHING_ALPHA_ICON_NAME,
-	CLOTHING_TATTOO_ICON_NAME,
-	CLOTHING_PHYSICS_ICON_NAME,
-	
-	ANIMATION_ICON_NAME,
-	GESTURE_ICON_NAME,
-
-	LINKITEM_ICON_NAME,
-	LINKFOLDER_ICON_NAME,
-
-	ICON_NAME_COUNT
-};
-
-extern std::string ICON_NAME[ICON_NAME_COUNT];
-
-typedef std::pair<LLUUID, LLUUID> two_uuids_t;
-typedef std::list<two_uuids_t> two_uuids_list_t;
-typedef std::pair<LLUUID, two_uuids_list_t> uuid_move_list_t;
 typedef std::vector<std::string> menuentry_vec_t;
-
-struct LLMoveInv
-{
-	LLUUID mObjectID;
-	LLUUID mCategoryID;
-	two_uuids_list_t mMoveList;
-	void (*mCallback)(S32, void*);
-	void* mUserData;
-};
 
 struct LLAttachmentRezAction
 {
@@ -357,7 +302,11 @@ public:
 
 	virtual LLFolderType::EType getPreferredType() const;
 	virtual LLUIImagePtr getIcon() const;
+	virtual LLUIImagePtr getOpenIcon() const;
+	static LLUIImagePtr getIcon(LLFolderType::EType preferred_type);
+
 	virtual BOOL renameItem(const std::string& new_name);
+
 	virtual BOOL removeItem();
 	virtual void pasteFromClipboard();
 	virtual void pasteLinkFromClipboard();
@@ -377,6 +326,7 @@ public:
 	static void createWearable(LLUUID parent_folder_id, LLWearableType::EType type);
 
 	LLViewerInventoryCategory* getCategory() const;
+	LLHandle<LLFolderBridge> getHandle() { mHandle.bind(this); return mHandle; }
 
 protected:
 	// menu callbacks
@@ -405,27 +355,17 @@ protected:
 	void modifyOutfit(BOOL append, BOOL replace = FALSE);
 	menuentry_vec_t getMenuItems() { return mItems; } // returns a copy of current menu items
 public:
-	static LLFolderBridge* sSelf;
+	static LLHandle<LLFolderBridge> sSelf;
 	static void staticFolderOptionsMenu();
 	void folderOptionsMenu();
+
 private:
 	BOOL			mCallingCards;
 	BOOL			mWearables;
-	LLMenuGL*		mMenu;
+	LLHandle<LLView>	mMenu;
 	menuentry_vec_t		mItems;
 	menuentry_vec_t		mDisabledItems;
-};
-
-// DEPRECATED
-class LLScriptBridge : public LLItemBridge
-{
-	friend class LLInvFVBridge;
-public:
-	LLUIImagePtr getIcon() const;
-
-protected:
-	LLScriptBridge( LLInventoryPanel* inventory, const LLUUID& uuid ) :
-		LLItemBridge(inventory, uuid) {}
+	LLRootHandle<LLFolderBridge> mHandle;
 };
 
 
@@ -646,8 +586,30 @@ protected:
 	static std::string sPrefix;
 };
 
+class LLMeshBridge : public LLItemBridge
+{
+    friend class LLInvFVBridge;
+public:
+    virtual LLUIImagePtr getIcon() const;
+    virtual void openItem();
+    virtual void previewItem();
+    virtual void buildContextMenu(LLMenuGL& menu, U32 flags);
+
+protected:
+    LLMeshBridge(LLInventoryPanel* inventory, 
+             const LLUUID& uuid) :
+                       LLItemBridge(inventory, uuid) {}
+};
+
 void rez_attachment(LLViewerInventoryItem* item, 
 					LLViewerJointAttachment* attachment,
 					bool replace = false);
 
+// Move items from an in-world object's "Contents" folder to a specified
+// folder in agent inventory.
+BOOL move_inv_category_world_to_agent(const LLUUID& object_id, 
+									  const LLUUID& category_id,
+									  BOOL drop,
+									  void (*callback)(S32, void*) = NULL,
+									  void* user_data = NULL);
 #endif // LL_LLINVENTORYBRIDGE_H

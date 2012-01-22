@@ -38,6 +38,7 @@
 #include "llfile.h"
 #include "llrender.h"
 #include "llcontrol.h"
+#include "llvertexbuffer.h"
 
 #if LL_DARWIN
 #include "OpenGL/OpenGL.h"
@@ -57,6 +58,7 @@ using std::string;
 
 GLhandleARB LLGLSLShader::sCurBoundShader = 0;
 LLGLSLShader* LLGLSLShader::sCurBoundShaderPtr = NULL;
+S32 LLGLSLShader::sIndexedTextureChannels = 0;
 bool LLGLSLShader::sNoFixedFunction = false;
 
 //UI shader -- declared here so llui_libtest will link properly
@@ -72,12 +74,9 @@ BOOL shouldChange(const LLVector4& v1, const LLVector4& v2)
 
 LLShaderFeatures::LLShaderFeatures()
 : calculatesLighting(false), isShiny(false), isFullbright(false), hasWaterFog(false),
-hasTransport(false), hasSkinning(false), hasAtmospherics(false), isSpecular(false),
-hasGamma(false), hasLighting(false), calculatesAtmospherics(false)
-, mIndexedTextureChannels(0), disableTextureIndex(false), hasAlphaMask(false)
-#if MESH_ENABLED
-, hasObjectSkinning(false)
-#endif //MESH_ENABLED
+hasTransport(false), hasSkinning(false), hasObjectSkinning(false), hasAtmospherics(false), isSpecular(false),
+hasGamma(false), hasLighting(false), isAlphaLighting(false), calculatesAtmospherics(false), mIndexedTextureChannels(0), disableTextureIndex(false),
+hasAlphaMask(false)
 {
 }
 
@@ -124,6 +123,12 @@ void LLGLSLShader::unload()
 BOOL LLGLSLShader::createShader(vector<string> * attributes,
 								vector<string> * uniforms)
 {
+	//reloading, reset matrix hash values
+	for (U32 i = 0; i < LLRender::NUM_MATRIX_MODES; ++i)
+	{
+		mMatHash[i] = 0xFFFFFFFF;
+	}
+	mLightHash = 0xFFFFFFFF;
 	llassert_always(!mShaderFiles.empty());
 	BOOL success = TRUE;
 
@@ -133,7 +138,8 @@ BOOL LLGLSLShader::createShader(vector<string> * attributes,
 	mProgramObject = glCreateProgramObjectARB();
 
 	static const LLCachedControl<bool> no_texture_indexing("ShyotlUseLegacyTextureBatching",false);
-	if (gGLManager.mGLVersion < 3.1f || no_texture_indexing)
+	//static const LLCachedControl<bool> use_legacy_path("ShyotlUseLegacyRenderPath", false);	//Legacy does not jive with new batching.
+	if (gGLManager.mGLVersion < 3.1f || no_texture_indexing /*|| use_legacy_path*/)
 	{ //force indexed texture channels to 1 if GL version is old (performance improvement for drivers with poor branching shader model support)
 		mFeatures.mIndexedTextureChannels = llmin(mFeatures.mIndexedTextureChannels, 1);
 	}
@@ -259,6 +265,13 @@ void LLGLSLShader::attachObjects(GLhandleARB* objects, S32 count)
 
 BOOL LLGLSLShader::mapAttributes(const vector<string> * attributes)
 {
+	//before linking, make sure reserved attributes always have consistent locations
+	for (U32 i = 0; i < LLShaderMgr::instance()->mReservedAttribs.size(); i++)
+	{
+		const char* name = LLShaderMgr::instance()->mReservedAttribs[i].c_str();
+		glBindAttribLocationARB(mProgramObject, i, (const GLcharARB *) name);
+	}
+	
 	//link the program
 	BOOL res = link();
 
@@ -332,7 +345,7 @@ void LLGLSLShader::mapUniform(GLint index, const vector<string> * uniforms)
 		for (S32 i = 0; i < (S32) LLShaderMgr::instance()->mReservedUniforms.size(); i++)
 		{
 			if ( (mUniform[i] == -1)
-				&& (LLShaderMgr::instance()->mReservedUniforms[i].compare(0, length, name, LLShaderMgr::instance()->mReservedUniforms[i].length()) == 0))
+				&& (LLShaderMgr::instance()->mReservedUniforms[i] == name))
 			{
 				//found it
 				mUniform[i] = location;
@@ -346,7 +359,7 @@ void LLGLSLShader::mapUniform(GLint index, const vector<string> * uniforms)
 			for (U32 i = 0; i < uniforms->size(); i++)
 			{
 				if ( (mUniform[i+LLShaderMgr::instance()->mReservedUniforms.size()] == -1)
-					&& ((*uniforms)[i].compare(0, length, name, (*uniforms)[i].length()) == 0))
+					&& ((*uniforms)[i] == name))
 				{
 					//found it
 					mUniform[i+LLShaderMgr::instance()->mReservedUniforms.size()] = location;
@@ -410,6 +423,7 @@ void LLGLSLShader::bind()
 	gGL.flush();
 	if (gGLManager.mHasShaderObjects)
 	{
+		LLVertexBuffer::unbind();
 		glUseProgramObjectARB(mProgramObject);
 		sCurBoundShader = mProgramObject;
 		sCurBoundShaderPtr = this;
@@ -435,6 +449,7 @@ void LLGLSLShader::unbind()
 				stop_glerror();
 			}
 		}
+		LLVertexBuffer::unbind();
 		glUseProgramObjectARB(0);
 		sCurBoundShader = 0;
 		sCurBoundShaderPtr = NULL;
@@ -444,9 +459,13 @@ void LLGLSLShader::unbind()
 
 void LLGLSLShader::bindNoShader(void)
 {
-	glUseProgramObjectARB(0);
-	sCurBoundShader = 0;
-	sCurBoundShaderPtr = NULL;
+	LLVertexBuffer::unbind();
+	if (gGLManager.mHasShaderObjects)
+	{
+		glUseProgramObjectARB(0);
+		sCurBoundShader = 0;
+		sCurBoundShaderPtr = NULL;
+	}
 }
 
 S32 LLGLSLShader::enableTexture(S32 uniform, LLTexUnit::eTextureType mode)
@@ -792,13 +811,17 @@ GLint LLGLSLShader::getUniformLocation(const string& uniform)
 		}
 	}
 
-	/*if (gDebugGL)
+	return ret;
+}
+
+GLint LLGLSLShader::getUniformLocation(U32 index)
+{
+	GLint ret = -1;
+	if (mProgramObject > 0)
 	{
-		if (ret == -1 && ret != glGetUniformLocationARB(mProgramObject, uniform.c_str()))
-		{
-			llerrs << "Uniform map invalid." << llendl;
-		}
-	}*/
+		llassert(index < mUniform.size());
+		return mUniform[index];
+	}
 
 	return ret;
 }
@@ -954,7 +977,9 @@ void LLGLSLShader::uniform4fv(const string& uniform, U32 count, const GLfloat* v
 		std::map<GLint, LLVector4>::iterator iter = mValue.find(location);
 		if (iter == mValue.end() || shouldChange(iter->second,vec) || count != 1)
 		{
+			stop_glerror();
 			glUniform4fvARB(location, count, v);
+			stop_glerror();
 			mValue[location] = vec;
 		}
 	}
@@ -992,12 +1017,6 @@ void LLGLSLShader::uniformMatrix4fv(const string& uniform, U32 count, GLboolean 
 	}
 }
 
-		
-void LLGLSLShader::setAlphaRange(F32 minimum, F32 maximum)
-{
-	uniform1f("minimum_alpha", minimum);
-	uniform1f("maximum_alpha", maximum);
-}
 
 void LLGLSLShader::vertexAttrib4f(U32 index, GLfloat x, GLfloat y, GLfloat z, GLfloat w)
 {
@@ -1013,4 +1032,10 @@ void LLGLSLShader::vertexAttrib4fv(U32 index, GLfloat* v)
 	{
 		glVertexAttrib4fvARB(mAttribute[index], v);
 	}
+}
+
+void LLGLSLShader::setMinimumAlpha(F32 minimum)
+{
+	gGL.flush();
+	uniform1f(LLShaderMgr::MINIMUM_ALPHA, minimum);
 }

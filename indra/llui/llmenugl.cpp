@@ -30,7 +30,7 @@
  * $/LicenseInfo$
  */
 
-//*****************************************************************************
+// *****************************************************************************
 //
 // This file contains the opengl based menu implementation.
 //
@@ -39,7 +39,7 @@
 // column is used for displaying boolean values for toggle and check
 // controls. The right column is used for submenus.
 //
-//*****************************************************************************
+// *****************************************************************************
 
 //#include "llviewerprecompiledheaders.h"
 #include "linden_common.h"
@@ -59,8 +59,7 @@
 #include "llresmgr.h"
 #include "llui.h"
 
-#include "lluitrans.h"
-
+#include "lltrans.h"
 #include "llstl.h"
 
 #include "v2math.h"
@@ -271,24 +270,24 @@ void LLMenuItemGL::appendAcceleratorString( std::string& st ) const
 	{
 		if ( mAcceleratorMask & MASK_MAC_CONTROL )
 		{
-			st.append( LLUITrans::getString("accel-mac-control") );
+			st.append( LLTrans::getString("accel-mac-control") );
 		}
 		else
 		{
-			st.append( LLUITrans::getString("accel-mac-command") );		// Symbol would be "\xE2\x8C\x98"
+			st.append( LLTrans::getString("accel-mac-command") );		// Symbol would be "\xE2\x8C\x98"
 		}
 	}
 	if( mAcceleratorMask & MASK_ALT )
-		st.append( LLUITrans::getString("accel-mac-option") );		// Symbol would be "\xE2\x8C\xA5"
+		st.append( LLTrans::getString("accel-mac-option") );		// Symbol would be "\xE2\x8C\xA5"
 	if( mAcceleratorMask & MASK_SHIFT )
-		st.append( LLUITrans::getString("accel-mac-shift") );		// Symbol would be "\xE2\x8C\xA7"
+		st.append( LLTrans::getString("accel-mac-shift") );		// Symbol would be "\xE2\x8C\xA7"
 #else
 	if( mAcceleratorMask & MASK_CONTROL )
-		st.append( LLUITrans::getString("accel-win-control") );
+		st.append( LLTrans::getString("accel-win-control") );
 	if( mAcceleratorMask & MASK_ALT )
-		st.append( LLUITrans::getString("accel-win-alt") );
+		st.append( LLTrans::getString("accel-win-alt") );
 	if( mAcceleratorMask & MASK_SHIFT )
-		st.append( LLUITrans::getString("accel-win-shift") );
+		st.append( LLTrans::getString("accel-win-shift") );
 #endif
 
 	std::string keystr = LLKeyboard::stringFromKey( mAcceleratorKey );
@@ -447,10 +446,10 @@ void LLMenuItemGL::draw( void )
 
 	LLColor4 color;
 
-	U8 font_style = mStyle;
+	LLFontGL::ShadowType font_shadow = LLFontGL::NO_SHADOW;
 	if (getEnabled() && !mDrawTextDisabled )
 	{
-		font_style |= LLFontGL::DROP_SHADOW_SOFT;
+		font_shadow = LLFontGL::DROP_SHADOW_SOFT;
 	}
 
 	if ( getEnabled() && getHighlight() )
@@ -470,26 +469,26 @@ void LLMenuItemGL::draw( void )
 	if (mBriefItem)
 	{
 		mFont->render( mLabel, 0, BRIEF_PAD_PIXELS / 2, 0, color,
-					   LLFontGL::LEFT, LLFontGL::BOTTOM, font_style );
+					   LLFontGL::LEFT, LLFontGL::BOTTOM, mStyle );
 	}
 	else
 	{
 		if( !mDrawBoolLabel.empty() )
 		{
 			mFont->render( mDrawBoolLabel.getWString(), 0, (F32)LEFT_PAD_PIXELS, ((F32)MENU_ITEM_PADDING / 2.f) + 1.f, color,
-						   LLFontGL::LEFT, LLFontGL::BOTTOM, font_style, S32_MAX, S32_MAX, NULL, FALSE );
+						   LLFontGL::LEFT, LLFontGL::BOTTOM, mStyle, font_shadow, S32_MAX, S32_MAX, NULL, FALSE );
 		}
 		mFont->render( mLabel.getWString(), 0, (F32)LEFT_PLAIN_PIXELS, ((F32)MENU_ITEM_PADDING / 2.f) + 1.f, color,
-					   LLFontGL::LEFT, LLFontGL::BOTTOM, font_style, S32_MAX, S32_MAX, NULL, FALSE );
+					   LLFontGL::LEFT, LLFontGL::BOTTOM, mStyle, font_shadow, S32_MAX, S32_MAX, NULL, FALSE );
 		if( !mDrawAccelLabel.empty() )
 		{
 			mFont->render( mDrawAccelLabel.getWString(), 0, (F32)getRect().mRight - (F32)RIGHT_PLAIN_PIXELS, ((F32)MENU_ITEM_PADDING / 2.f) + 1.f, color,
-						   LLFontGL::RIGHT, LLFontGL::BOTTOM, font_style, S32_MAX, S32_MAX, NULL, FALSE );
+						   LLFontGL::RIGHT, LLFontGL::BOTTOM, mStyle, font_shadow, S32_MAX, S32_MAX, NULL, FALSE );
 		}
 		if( !mDrawBranchLabel.empty() )
 		{
 			mFont->render( mDrawBranchLabel.getWString(), 0, (F32)getRect().mRight - (F32)RIGHT_PAD_PIXELS, ((F32)MENU_ITEM_PADDING / 2.f) + 1.f, color,
-						   LLFontGL::RIGHT, LLFontGL::BOTTOM, font_style, S32_MAX, S32_MAX, NULL, FALSE );
+						   LLFontGL::RIGHT, LLFontGL::BOTTOM, mStyle, font_shadow, S32_MAX, S32_MAX, NULL, FALSE );
 		}
 	}
 
@@ -1279,13 +1278,13 @@ void LLMenuItemBranchGL::updateBranchParent(LLView* parentp)
 	}
 }
 
-void LLMenuItemBranchGL::onVisibilityChange( BOOL new_visibility )
+void LLMenuItemBranchGL::handleVisibilityChange( BOOL new_visibility )
 {
 	if (new_visibility == FALSE && getBranch() && !getBranch()->getTornOff())
 	{
 		getBranch()->setVisible(FALSE);
 	}
-	LLMenuItemGL::onVisibilityChange(new_visibility);
+	LLMenuItemGL::handleVisibilityChange(new_visibility);
 }
 
 BOOL LLMenuItemBranchGL::handleKeyHere( KEY key, MASK mask )
@@ -1501,20 +1500,26 @@ void LLMenuItemBranchDownGL::openMenu( void )
 // set the hover status (called by it's menu)
 void LLMenuItemBranchDownGL::setHighlight( BOOL highlight )
 {
-	if (highlight == getHighlight()) return;
+ 	if (highlight == getHighlight())
+		return;
 
 	//NOTE: Purposely calling all the way to the base to bypass auto-open.
 	LLMenuItemGL::setHighlight(highlight);
+
+	LLMenuGL* branch = getBranch();
+	if (!branch)
+		return;
+	
 	if( !highlight)
 	{
-		if (getBranch()->getTornOff())
+		if (branch->getTornOff())
 		{
-			((LLFloater*)getBranch()->getParent())->setFocus(FALSE);
-			getBranch()->clearHoverItem();
+			((LLFloater*)branch->getParent())->setFocus(FALSE);
+			branch->clearHoverItem();
 		}
 		else
 		{
-			getBranch()->setVisible( FALSE );
+			branch->setVisible( FALSE );
 		}
 	}
 }
@@ -1632,10 +1637,10 @@ void LLMenuItemBranchDownGL::draw( void )
 		gl_rect_2d( 0, getRect().getHeight(), getRect().getWidth(), 0 );
 	}
 
-	U8 font_style = getFontStyle();
+	LLFontGL::ShadowType font_shadow = LLFontGL::NO_SHADOW;
 	if (getEnabled() && !getDrawTextDisabled() )
 	{
-		font_style |= LLFontGL::DROP_SHADOW_SOFT;
+		font_shadow = LLFontGL::DROP_SHADOW_SOFT;
 	}
 
 	LLColor4 color;
@@ -1652,7 +1657,7 @@ void LLMenuItemBranchDownGL::draw( void )
 		color = getDisabledColor();
 	}
 	getFont()->render( mLabel.getWString(), 0, (F32)getRect().getWidth() / 2.f, (F32)LABEL_BOTTOM_PAD_PIXELS, color,
-				   LLFontGL::HCENTER, LLFontGL::BOTTOM, font_style );
+				   LLFontGL::HCENTER, LLFontGL::BOTTOM, getFontStyle(), font_shadow );
 
 
 	// underline navigation key only when keyboard navigation has been initiated
@@ -3852,7 +3857,7 @@ void LLPieMenu::show(S32 x, S32 y, BOOL mouse_down)
 		center.mX = (getRect().mLeft + getRect().mRight) / 2;
 		center.mY = (getRect().mTop + getRect().mBottom) / 2;
 
-		LLUI::setCursorPositionLocal(getParent(), center.mX, center.mY);
+		LLUI::setMousePositionLocal(getParent(), center.mX, center.mY);
 	}
 
 	// *FIX: what happens when mouse buttons reversed?

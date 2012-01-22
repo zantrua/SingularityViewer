@@ -170,7 +170,7 @@
 #include "llimagej2c.h"
 #include "llimagetga.h"
 #include "llinventorydefines.h"
-#include "llinventorymodel.h"
+#include "llinventoryfunctions.h"
 #include "llinventoryview.h"
 #include "llkeyboard.h"
 #include "llpanellogin.h"
@@ -247,6 +247,7 @@
 #include "llfloatermessagelog.h"
 #include "llfloatervfs.h"
 #include "llfloatervfsexplorer.h"
+#include "shfloatermediaticker.h"
 // </edit>
 
 #include "scriptcounter.h"
@@ -410,11 +411,6 @@ void toggle_cull_small(void *);
 
 void toggle_show_xui_names(void *);
 BOOL check_show_xui_names(void *);
-
-void run_vectorize_perf_test(void *)
-{
-	gSavedSettings.setBOOL("VectorizePerfTest", TRUE);
-}
 
 // Debug UI
 void handle_web_search_demo(void*);
@@ -808,7 +804,7 @@ void init_menus()
 	menu->appendSeparator();
 	menu->append(new LLMenuItemCallGL(  "Fake Away Status", &handle_fake_away_status, NULL));
 	menu->append(new LLMenuItemCallGL(  "Force Ground Sit", &handle_force_ground_sit, NULL));
-	menu->append(new LLMenuItemCallGL(  "Phantom Avatar", &handle_phantom_avatar, NULL));
+	menu->append(new LLMenuItemCallGL(  "Phantom Avatar", &handle_phantom_avatar, NULL, NULL, 'P', MASK_CONTROL | MASK_ALT));
 	menu->appendSeparator();
 	menu->append(new LLMenuItemCallGL( "Animation Override...",
 									&handle_edit_ao, NULL));
@@ -831,6 +827,8 @@ void init_menus()
 											&handle_sounds_explorer, NULL));
 	menu->append(new LLMenuItemCallGL(	"Asset Blacklist",
 											&handle_blacklist, NULL));
+	menu->append(new LLMenuItemCheckGL(  "Streaming Audio Display", 
+											&handle_ticker_toggle, &handle_ticker_enabled, &handle_ticker_check, NULL ));
 	
 	
 	
@@ -1496,8 +1494,6 @@ void init_debug_rendering_menu(LLMenuGL* menu)
 													&LLPipeline::toggleRenderDebugControl,
 													(void*)LLPipeline::RENDER_DEBUG_UPDATE_TYPE));
 
-	sub_menu->append(new LLMenuItemCallGL("Vectorize Perf Test", &run_vectorize_perf_test));
-
 	sub_menu = new LLMenuGL("Render Tests");
 
 	sub_menu->append(new LLMenuItemCheckGL("Camera Offset", 
@@ -1541,7 +1537,10 @@ void init_debug_rendering_menu(LLMenuGL* menu)
 	item = new LLMenuItemCheckGL("Debug Pipeline", menu_toggle_control, NULL, menu_check_control, (void*)"RenderDebugPipeline");
 	menu->append(item);
 	
-	item = new LLMenuItemCheckGL("Fast Alpha", menu_toggle_control, NULL, menu_check_control, (void*)"RenderFastAlpha");
+	item = new LLMenuItemCheckGL("Automatic Alpha Masks (non-deferred)", menu_toggle_control, NULL, menu_check_control, (void*)"RenderAutoMaskAlphaNonDeferred");
+	menu->append(item);
+
+	item = new LLMenuItemCheckGL("Automatic Alpha Masks (deferred)", menu_toggle_control, NULL, menu_check_control, (void*)"RenderAutoMaskAlphaDeferred");
 	menu->append(item);
 	
 	item = new LLMenuItemCheckGL("Animate Textures", menu_toggle_control, NULL, menu_check_control, (void*)"AnimateTextures");
@@ -4845,7 +4844,7 @@ void handle_take()
 			}
 
 			// check library
-			if(gInventory.isObjectDescendentOf(category_id, gInventoryLibraryRoot))
+			if(gInventory.isObjectDescendentOf(category_id, gInventory.getLibraryRootFolderID()))
 			{
 				category_id.setNull();
 			}
@@ -6431,11 +6430,6 @@ class LLShowFloater : public view_listener_t
 		}
 		else if (floater_name == "about land")
 		{
-			if (LLViewerParcelMgr::getInstance()->selectionEmpty())
-			{
-				LLViewerParcelMgr::getInstance()->selectParcelAt(gAgent.getPositionGlobal());
-			}
-
 			LLFloaterLand::showInstance();
 		}
 		else if (floater_name == "buy land")
@@ -7189,7 +7183,7 @@ class LLAttachmentEnableDrop : public view_listener_t
 						// if a fetch is already out there (being sent from a slow sim)
 						// we refetch and there are 2 fetches
 						LLWornItemFetchedObserver* wornItemFetched = new LLWornItemFetchedObserver();
-						LLInventoryFetchObserver::item_ref_t items; //add item to the inventory item to be fetched
+						uuid_vec_t items; //add item to the inventory item to be fetched
 
 						items.push_back((*attachment_iter)->getAttachmentItemID());
 
@@ -7381,9 +7375,7 @@ class LLAvatarSendIM : public view_listener_t
 			gIMMgr->setFloaterOpen(TRUE);
 			//EInstantMessage type = have_agent_callingcard(gLastHitObjectID)
 			//	? IM_SESSION_ADD : IM_SESSION_CARDLESS_START;
-			gIMMgr->addSession(name,
-								IM_NOTHING_SPECIAL,
-								avatar->getID());
+			gIMMgr->addSession(LLCacheName::cleanFullName(name),IM_NOTHING_SPECIAL,avatar->getID());
 		}
 		return true;
 	}
@@ -9005,7 +8997,7 @@ static void handle_load_from_xml_continued(AIFilePicker* filepicker)
 
 void handle_web_browser_test(void*)
 {
-	LLWeb::loadURL("http://secondlife.com/app/search/slurls.html");
+	LLFloaterMediaBrowser::showInstance("http://secondlife.com/app/search/slurls.html");
 }
 
 void handle_buy_currency_test(void*)

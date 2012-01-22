@@ -79,6 +79,7 @@
 #include "lldir.h"
 #include "llcombobox.h"
 //#include "llfloaterchat.h"
+#include "llfloatersearchreplace.h"
 #include "llviewerstats.h"
 #include "llviewertexteditor.h"
 #include "llviewerwindow.h"
@@ -140,10 +141,6 @@ const S32 SCRIPT_MIN_HEIGHT =
 
 const S32 MAX_EXPORT_SIZE = 1000;
 
-const S32 SCRIPT_SEARCH_WIDTH = 300;
-const S32 SCRIPT_SEARCH_HEIGHT = 120;
-const S32 SCRIPT_SEARCH_LABEL_WIDTH = 50;
-const S32 SCRIPT_SEARCH_BUTTON_WIDTH = 80;
 const S32 TEXT_EDIT_COLUMN_HEIGHT = 16;
 const S32 MAX_HISTORY_COUNT = 10;
 const F32 LIVE_HELP_REFRESH_TIME = 1.f;
@@ -155,6 +152,7 @@ static bool have_script_upload_cap(LLUUID& object_id)
 }
 
 /// ---------------------------------------------------------------------------
+<<<<<<< HEAD
 /// LLFloaterScriptSearch
 /// ---------------------------------------------------------------------------
 class LLFloaterScriptSearch : public LLFloater
@@ -297,6 +295,8 @@ void LLFloaterScriptSearch::open()		/*Flawfinder: ignore*/
 
 
 /// ---------------------------------------------------------------------------
+=======
+>>>>>>> a39bf619775fce29521a91e7671205334bab7687
 /// LLScriptEdCore
 /// ---------------------------------------------------------------------------
 
@@ -558,6 +558,7 @@ LLScriptEdCore::LLScriptEdCore(
 LLScriptEdCore::~LLScriptEdCore()
 {
 	deleteBridges();
+<<<<<<< HEAD
 
 	delete mLSLProc;
 	mLSLProc = NULL;
@@ -600,6 +601,8 @@ void LLScriptEdCore::updateResizer(void* userdata)
 		self->mErrorListResizer->setResizeLimits(10,TabSetRect.getHeight()+newrect.getHeight());
 		gSavedSettings.setRect("PhoenixScriptErrorRect",newrect);
 	}
+=======
+>>>>>>> a39bf619775fce29521a91e7671205334bab7687
 }
 
 BOOL LLScriptEdCore::tick()
@@ -653,6 +656,10 @@ void LLScriptEdCore::initMenu()
 	menuItem = getChild<LLMenuItemCallGL>("Select All");
 	menuItem->setMenuCallback(onSelectAllMenu, this);
 	menuItem->setEnabledCallback(enableSelectAllMenu);
+
+	menuItem = getChild<LLMenuItemCallGL>("Deselect");
+	menuItem->setMenuCallback(onDeselectMenu, this);
+	menuItem->setEnabledCallback(enableDeselectMenu);
 
 	menuItem = getChild<LLMenuItemCallGL>("Search / Replace...");
 	menuItem->setMenuCallback(onSearchMenu, this);
@@ -1319,7 +1326,10 @@ void LLScriptEdCore::onBtnUndoChanges( void* userdata )
 void LLScriptEdCore::onSearchMenu(void* userdata)
 {
 	LLScriptEdCore* sec = (LLScriptEdCore*)userdata;
-	LLFloaterScriptSearch::show(sec);
+	if (sec && sec->mEditor)
+	{
+		LLFloaterSearchReplace::show(sec->mEditor);
+	}
 }
 
 // static 
@@ -1670,7 +1680,7 @@ void LLPreviewLSL::loadAsset()
 	const LLInventoryItem* item = gInventory.getItem(mItemUUID);
 	BOOL is_library = item
 		&& !gInventory.isObjectDescendentOf(mItemUUID,
-											gAgent.getInventoryRootID());
+											gInventory.getRootFolderID());
 	if(!item)
 	{
 		// do the more generic search.
@@ -1751,7 +1761,10 @@ void LLPreviewLSL::onSearchReplace(void* userdata)
 {
 	LLPreviewLSL* self = (LLPreviewLSL*)userdata;
 	LLScriptEdCore* sec = self->mScriptEd; 
-	LLFloaterScriptSearch::show(sec);
+	if (sec && sec->mEditor)
+	{
+		LLFloaterSearchReplace::show(sec->mEditor);
+	}
 }
 
 // static
@@ -2616,7 +2629,10 @@ void LLLiveLSLEditor::onSearchReplace(void* userdata)
 {
 	LLLiveLSLEditor* self = (LLLiveLSLEditor*)userdata;
 	LLScriptEdCore* sec = self->mScriptEd; 
-	LLFloaterScriptSearch::show(sec);
+	if (sec && sec->mEditor)
+	{
+		LLFloaterSearchReplace::show(sec->mEditor);
+	}
 }
 
 struct LLLiveLSLSaveData

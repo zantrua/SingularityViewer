@@ -103,12 +103,10 @@ LLAssetDictionary::LLAssetDictionary()
 	//addEntry(LLAssetType::AT_FAVORITE, 			new AssetEntry("FAVORITE",			"favorite",	"",					false,		false,		false));
 	addEntry(LLAssetType::AT_LINK, 				new AssetEntry("LINK",				"link",		"sym link",			false,		false,		true));
 	addEntry(LLAssetType::AT_LINK_FOLDER, 		new AssetEntry("FOLDER_LINK",		"link_f", 	"sym folder link",	false,		false,		true));
-	//addEntry(LLAssetType::AT_CURRENT_OUTFIT,	new AssetEntry("FOLDER_LINK",		"current",	"current outfit",	false,		false,		false));
-	//addEntry(LLAssetType::AT_OUTFIT,			new AssetEntry("OUTFIT",			"outfit", 	"outfit",			false,		false,		false));
-	//addEntry(LLAssetType::AT_MY_OUTFITS,		new AssetEntry("MY_OUTFITS",		"my_otfts",	"my outfits",		false,		false,		false));
-#if MESH_ENABLED
-	addEntry(LLAssetType::AT_MESH,              new AssetEntry("MESH",              "mesh",     "mesh",             false, false, false));
-#endif //MESH_ENABLED
+	addEntry(LLAssetType::AT_CURRENT_OUTFIT,	new AssetEntry("FOLDER_LINK",		"current",	"current outfit",	false,		false,		false));
+	addEntry(LLAssetType::AT_OUTFIT,			new AssetEntry("OUTFIT",			"outfit", 	"outfit",			false,		false,		false));
+	addEntry(LLAssetType::AT_MY_OUTFITS,		new AssetEntry("MY_OUTFITS",		"my_otfts",	"my outfits",		false,		false,		false));
+	addEntry(LLAssetType::AT_MESH,		        new AssetEntry("MESH",		        "mesh",	    "mesh",		        false,		true,		true));
 	addEntry(LLAssetType::AT_NONE, 				new AssetEntry("NONE",				"-1",		NULL,		  		false,		false,		false));
 };		
 
@@ -216,17 +214,16 @@ LLAssetType::EType LLAssetType::lookupHumanReadable(const std::string& readable_
 bool LLAssetType::lookupCanLink(EType asset_type)
 {
 	//Check that enabling all these other types as linkable doesn't break things.
-	/*const LLAssetDictionary *dict = LLAssetDictionary::getInstance();
+	const LLAssetDictionary *dict = LLAssetDictionary::getInstance();
 	const AssetEntry *entry = dict->lookup(asset_type);
 	if (entry)
 	{
 		return entry->mCanLink;
 	}
 	return false;
-	*/
 	
-	return (asset_type == AT_CLOTHING || asset_type == AT_OBJECT || asset_type == AT_CATEGORY ||
-			asset_type == AT_BODYPART || asset_type == AT_GESTURE);
+	/*return (asset_type == AT_CLOTHING || asset_type == AT_OBJECT || asset_type == AT_CATEGORY ||
+			asset_type == AT_BODYPART || asset_type == AT_GESTURE);*/
 }
 
 // static

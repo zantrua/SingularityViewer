@@ -55,7 +55,7 @@
 #include "lldelayedgestureerror.h"
 #include "llfloatergesture.h" // for some label constants
 #include "llgesturemgr.h"
-#include "llinventorymodel.h"
+#include "llinventoryfunctions.h"
 #include "llkeyboard.h"
 #include "lllineeditor.h"
 #include "llnotificationsutil.h"
@@ -95,8 +95,8 @@ protected:
 void LLInventoryGestureAvailable::done()
 {
 	LLPreview* preview = NULL;
-	item_ref_t::iterator it = mComplete.begin();
-	item_ref_t::iterator end = mComplete.end();
+	uuid_vec_t::iterator it = mComplete.begin();
+	uuid_vec_t::iterator end = mComplete.end();
 	for(; it < end; ++it)
 	{
 		preview = LLPreview::find((*it));
@@ -612,7 +612,7 @@ void LLPreviewGesture::addAnimations()
 													PERM_ITEM_UNRESTRICTED,
 													gAgent.getID(),
 													gAgent.getGroupID());
-	gInventory.collectDescendentsIf(gAgent.getInventoryRootID(),
+	gInventory.collectDescendentsIf(gInventory.getRootFolderID(),
 									cats,
 									items,
 									LLInventoryModel::EXCLUDE_TRASH,
@@ -657,7 +657,7 @@ void LLPreviewGesture::addSounds()
 													PERM_ITEM_UNRESTRICTED,
 													gAgent.getID(),
 													gAgent.getGroupID());
-	gInventory.collectDescendentsIf(gAgent.getInventoryRootID(),
+	gInventory.collectDescendentsIf(gInventory.getRootFolderID(),
 									cats,
 									items,
 									LLInventoryModel::EXCLUDE_TRASH,

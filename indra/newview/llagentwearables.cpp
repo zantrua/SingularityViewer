@@ -523,6 +523,13 @@ BOOL LLAgentWearables::isWearableCopyable(LLWearableType::EType type) const
 	return FALSE;
 }
 
+BOOL LLAgentWearables::areWearablesLoaded() const
+{
+	if(gSavedSettings.getBOOL("RenderUnloadedAvatar"))
+		return TRUE;
+	return mWearablesLoaded;
+}
+
 U32 LLAgentWearables::getWearablePermMask(LLWearableType::EType type) const
 {
 	LLUUID item_id = getWearableItemID(type);
@@ -1123,6 +1130,9 @@ void LLAgentWearables::makeNewOutfit(
 			if( old_wearable )
 			{
 				LLViewerInventoryItem* item = gInventory.getItem(getWearableItemID((LLWearableType::EType)index));
+				llassert(item);
+				if (!item)
+					continue;
 				if (fUseOutfits)
 				{
 					std::string strOrdering = llformat("@%d", item->getWearableType() * 100);

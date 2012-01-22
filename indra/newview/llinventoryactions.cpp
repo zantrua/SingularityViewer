@@ -43,6 +43,7 @@
 #include "llagent.h"
 #include "llcallingcard.h"
 #include "llcheckboxctrl.h"		// for radio buttons
+#include "llfoldervieweventlistener.h"
 #include "llnotificationsutil.h"
 #include "llradiogroup.h"
 #include "llspinctrl.h"
@@ -60,7 +61,7 @@
 #include "llfolderview.h"
 #include "llgesturemgr.h"
 #include "lliconctrl.h"
-#include "llinventorymodel.h"
+#include "llinventoryfunctions.h"
 #include "llinventoryclipboard.h"
 #include "lllineeditor.h"
 #include "llmenugl.h"
@@ -357,7 +358,7 @@ void do_create(LLInventoryModel *model, LLInventoryPanel *ptr, std::string type,
 		}
 		else
 		{
-			category = model->createNewCategory(gAgent.getInventoryRootID(),
+			category = model->createNewCategory(gInventory.getRootFolderID(),
 												LLFolderType::FT_NONE, LLStringUtil::null);
 		}
 		model->notifyObservers();
@@ -410,7 +411,7 @@ class LLDoCreate : public inventory_panel_listener_t
 		LLInventoryModel* model = mPtr->getModel();
 		if(!model) return false;
 		std::string type = userdata.asString();
-		do_create(model, mPtr, type, LLFolderBridge::sSelf);
+		do_create(model, mPtr, type, LLFolderBridge::sSelf.get());
 		return true;
 	}
 };
@@ -679,7 +680,7 @@ class LLAttachObject : public inventory_panel_listener_t
 		}
 		LLViewerInventoryItem* item = (LLViewerInventoryItem*)gInventory.getItem(id);
 
-		if(item && gInventory.isObjectDescendentOf(id, gAgent.getInventoryRootID()))
+		if(item && gInventory.isObjectDescendentOf(id, gInventory.getRootFolderID()))
 		{
 			rez_attachment(item, attachmentp);
 		}

@@ -168,6 +168,8 @@
 #include "llwlparammanager.h"
 #include "llwaterparammanager.h"
 
+#include "llgiveinventory.h"
+
 #include <boost/tokenizer.hpp>
 
 #if LL_WINDOWS // For Windows specific error handler
@@ -785,7 +787,6 @@ bool join_group_response(const LLSD& notification, const LLSD& response)
 			delete_context_data = FALSE;
 			LLSD args;
 			args["COST"] = llformat("%d", fee);
-			args["CURRENCY"] = gHippoGridManager->getConnectedGrid()->getCurrencySymbol();
 			// Set the fee for next time to 0, so that we don't keep
 			// asking about a fee.
 			LLSD next_payload = notification["payload"];
@@ -876,37 +877,13 @@ public:
 	virtual void done()
 	{
 		LL_DEBUGS("Messaging") << "LLDiscardAgentOffer::done()" << LL_ENDL;
-		const LLUUID trash_id = gInventory.findCategoryUUIDForType(LLFolderType::FT_TRASH);
-		bool notify = false;
-		if(trash_id.notNull() && mObjectID.notNull())
-		{
-			LLInventoryModel::update_list_t update;
-			LLInventoryModel::LLCategoryUpdate old_folder(mFolderID, -1);
-			update.push_back(old_folder);
-			LLInventoryModel::LLCategoryUpdate new_folder(trash_id, 1);
-			update.push_back(new_folder);
-			gInventory.accountForUpdate(update);
-			gInventory.moveObject(mObjectID, trash_id);
-			LLInventoryObject* obj = gInventory.getObject(mObjectID);
-			if(obj)
-			{
-				// no need to restamp since this is already a freshly
-				// stamped item.
-				obj->updateParentOnServer(FALSE);
-				notify = true;
-			}
-		}
-		else
-		{
-			LL_WARNS("Messaging") << "DiscardAgentOffer unable to find: "
-					<< (trash_id.isNull() ? "trash " : "")
-					<< (mObjectID.isNull() ? "object" : "") << LL_ENDL;
-		}
+
+		// We're invoked from LLInventoryModel::notifyObservers().
+		// If we now try to remove the inventory item, it will cause a nested
+		// notifyObservers() call, which won't work.
+		// So defer moving the item to trash until viewer gets idle (in a moment).
+		LLAppViewer::instance()->addOnIdleCallback(boost::bind(&LLInventoryModel::removeItem, &gInventory, mObjectID));
 		gInventory.removeObserver(this);
-		if(notify)
-		{
-			gInventory.notifyObservers();
-		}
 		delete this;
 	}
 protected:
@@ -1345,7 +1322,7 @@ bool LLOfferInfo::inventory_offer_callback(const LLSD& notification, const LLSD&
 #endif // RLV_EXTENSION_GIVETORLV_A2A
 // [/RLVa:KB]
 
-			LLInventoryFetchObserver::item_ref_t items;
+			uuid_vec_t items;
 			items.push_back(mObjectID);
 			LLOpenAgentOffer* open_agent_offer = new LLOpenAgentOffer(from_string);
 			open_agent_offer->fetchItems(items);
@@ -1648,6 +1625,57 @@ bool goto_url_callback(const LLSD& notification, const LLSD& response)
 }
 static LLNotificationFunctorRegistration goto_url_callback_reg("GotoURL", goto_url_callback);
 
+// Strip out "Resident" for display, but only if the message came from a user
+// (rather than a script)
+static std::string clean_name_from_im(const std::string& name, EInstantMessage type)
+{
+	switch(type)
+	{
+	case IM_NOTHING_SPECIAL:
+	case IM_MESSAGEBOX:
+	case IM_GROUP_INVITATION:
+	case IM_INVENTORY_OFFERED:
+	case IM_INVENTORY_ACCEPTED:
+	case IM_INVENTORY_DECLINED:
+	case IM_GROUP_VOTE:
+	case IM_GROUP_MESSAGE_DEPRECATED:
+	//IM_TASK_INVENTORY_OFFERED
+	//IM_TASK_INVENTORY_ACCEPTED
+	//IM_TASK_INVENTORY_DECLINED
+	case IM_NEW_USER_DEFAULT:
+	case IM_SESSION_INVITE:
+	case IM_SESSION_P2P_INVITE:
+	case IM_SESSION_GROUP_START:
+	case IM_SESSION_CONFERENCE_START:
+	case IM_SESSION_SEND:
+	case IM_SESSION_LEAVE:
+	//IM_FROM_TASK
+	case IM_BUSY_AUTO_RESPONSE:
+	case IM_CONSOLE_AND_CHAT_HISTORY:
+	case IM_LURE_USER:
+	case IM_LURE_ACCEPTED:
+	case IM_LURE_DECLINED:
+	case IM_GODLIKE_LURE_USER:
+	case IM_YET_TO_BE_USED:
+	case IM_GROUP_ELECTION_DEPRECATED:
+	//IM_GOTO_URL
+	//IM_FROM_TASK_AS_ALERT
+	case IM_GROUP_NOTICE:
+	case IM_GROUP_NOTICE_INVENTORY_ACCEPTED:
+	case IM_GROUP_NOTICE_INVENTORY_DECLINED:
+	case IM_GROUP_INVITATION_ACCEPT:
+	case IM_GROUP_INVITATION_DECLINE:
+	case IM_GROUP_NOTICE_REQUESTED:
+	case IM_FRIENDSHIP_OFFERED:
+	case IM_FRIENDSHIP_ACCEPTED:
+	case IM_FRIENDSHIP_DECLINED_DEPRECATED:
+	case IM_TYPING_START:
+	//IM_TYPING_STOP
+		return LLCacheName::cleanFullName(name);
+	default:
+		return name;
+	}
+}
 
 void process_improved_im(LLMessageSystem *msg, void **user_data)
 {
@@ -1689,6 +1717,15 @@ void process_improved_im(LLMessageSystem *msg, void **user_data)
 	msg->getBinaryDataFast(  _PREHASH_MessageBlock, _PREHASH_BinaryBucket, binary_bucket, 0, 0, MTUBYTES);
 	binary_bucket_size = msg->getSizeFast(_PREHASH_MessageBlock, _PREHASH_BinaryBucket);
 	EInstantMessage dialog = (EInstantMessage)d;
+
+    // make sure that we don't have an empty or all-whitespace name
+	LLStringUtil::trim(name);
+	if (name.empty())
+	{
+        name = LLTrans::getString("Unnamed");
+	}
+	// IDEVO convert new-style "Resident" names for display
+	name = clean_name_from_im(name, dialog);
 
 	// <edit>
 	llinfos << "RegionID: " << region_id.asString() << llendl;
@@ -1948,7 +1985,7 @@ void process_improved_im(LLMessageSystem *msg, void **user_data)
 									position,
 									false);
 						}
-						LLToolDragAndDrop::giveInventory(from_id, item);
+						LLGiveInventory::doGiveInventoryItem(from_id, item);
 					}
 				}
 			}
@@ -2164,7 +2201,7 @@ void process_improved_im(LLMessageSystem *msg, void **user_data)
 	case IM_MESSAGEBOX:
 		{
 			// This is a block, modeless dialog.
-			//*TODO:translate
+			// *TODO:translate
 			args["MESSAGE"] = message;
 			LLNotificationsUtil::add("SystemMessage", args);
 		}
@@ -3259,9 +3296,14 @@ void process_chat_from_simulator(LLMessageSystem *msg, void **user_data)
     /*if (from_name.empty())
     {
         from_name = "(no name)";
+<<<<<<< HEAD
     }*/
 	chat.mFromName = from_name;
 	
+=======
+    }
+
+>>>>>>> a39bf619775fce29521a91e7671205334bab7687
 	msg->getUUID("ChatData", "SourceID", from_id);
 	chat.mFromID = from_id;
 	
@@ -3288,6 +3330,27 @@ void process_chat_from_simulator(LLMessageSystem *msg, void **user_data)
 	chat.mAudible = (EChatAudible)audible_temp;
 	
 	chat.mTime = LLFrameTimer::getElapsedSeconds();
+
+	// IDEVO Correct for new-style "Resident" names
+	if (chat.mSourceType == CHAT_SOURCE_AGENT)
+	{
+		// I don't know if it's OK to change this here, if
+		// anything downstream does lookups by name, for instance
+
+		LLAvatarName av_name;
+		if (LLAvatarNameCache::get(from_id, &av_name))
+		{
+			chat.mFromName = av_name.mDisplayName;
+		}
+		else
+		{
+			chat.mFromName = LLCacheName::cleanFullName(from_name);
+		}
+	}
+	else
+	{
+		chat.mFromName = from_name;
+	}
 
 	BOOL is_busy = gAgent.getBusy();
 
@@ -3948,18 +4011,6 @@ void process_teleport_finish(LLMessageSystem* msg, void**)
 	U32 teleport_flags;
 	msg->getU32Fast(_PREHASH_Info, _PREHASH_TeleportFlags, teleport_flags);
 	
-	U32 region_size_x = 256;
-    msg->getU32Fast(_PREHASH_Info, _PREHASH_RegionSizeX, region_size_x);
-
-    U32 region_size_y = 256;
-    msg->getU32Fast(_PREHASH_Info, _PREHASH_RegionSizeY, region_size_y);
-
-    //and a little hack for Second Life compatibility
-    if (region_size_y == 0 || region_size_x == 0)
-    {
-	    region_size_x = 256;
-        region_size_y = 256;
-    }
 	
 	std::string seedCap;
 	msg->getStringFast(_PREHASH_Info, _PREHASH_SeedCapability, seedCap);
@@ -3979,7 +4030,7 @@ void process_teleport_finish(LLMessageSystem* msg, void**)
 
 	// Viewer trusts the simulator.
 	gMessageSystem->enableCircuit(sim_host, TRUE);
-	LLViewerRegion* regionp =  LLWorld::getInstance()->addRegion(region_handle, sim_host, region_size_x, region_size_y);
+	LLViewerRegion* regionp =  LLWorld::getInstance()->addRegion(region_handle, sim_host);
 
 /*
 	// send camera update to new region
@@ -4075,7 +4126,7 @@ void process_agent_movement_complete(LLMessageSystem* msg, void**)
 
 	LL_DEBUGS("Messaging") << "process_agent_movement_complete()" << LL_ENDL;
 
-	// *TODO: check timestamp to make sure the movement compleation
+	// *TODO: check timestamp to make sure the movement completion
 	// makes sense.
 	LLVector3 agent_pos;
 	msg->getVector3Fast(_PREHASH_Data, _PREHASH_Position, agent_pos);
@@ -4087,8 +4138,7 @@ void process_agent_movement_complete(LLMessageSystem* msg, void**)
 	std::string version_channel;
 	msg->getString("SimData", "ChannelVersion", version_channel);
 
-	LLVOAvatar* avatarp = gAgentAvatarp;
-	if (!avatarp)
+	if (!isAgentAvatarValid())
 	{
 		// Could happen if you were immediately god-teleported away on login,
 		// maybe other cases.  Continue, but warn.
@@ -4109,7 +4159,7 @@ void process_agent_movement_complete(LLMessageSystem* msg, void**)
 			<< x << ":" << y 
 			<< " current pos " << gAgent.getPositionGlobal()
 			<< LL_ENDL;
-		LLAppViewer::instance()->forceDisconnect("You were sent to an invalid region.");
+		LLAppViewer::instance()->forceDisconnect(LLTrans::getString("SentToInvalidRegion"));
 		return;
 
 	}
@@ -4149,7 +4199,7 @@ void process_agent_movement_complete(LLMessageSystem* msg, void**)
 		gAgent.sendAgentSetAppearance();
 
 // [RLVa:KB] - Checked: 2009-07-04 (RLVa-1.0.0a)
-		if ( (avatarp) && (!gRlvHandler.hasBehaviour(RLV_BHVR_SHOWLOC)) )
+		if ( (gAgentAvatarp) && (!gRlvHandler.hasBehaviour(RLV_BHVR_SHOWLOC)) )
 // [/RLVa:KB]
 //		if (avatarp)
 		{
@@ -4159,9 +4209,9 @@ void process_agent_movement_complete(LLMessageSystem* msg, void**)
  			LLFloaterChat::addChatHistory(chat);
 
 			// Set the new position
-			avatarp->setPositionAgent(agent_pos);
-			avatarp->clearChat();
-			avatarp->slamPosition();
+			gAgentAvatarp->setPositionAgent(agent_pos);
+			gAgentAvatarp->clearChat();
+			gAgentAvatarp->slamPosition();
 		}
 
 		// add teleport destination to the list of visited places
@@ -4235,9 +4285,9 @@ void process_agent_movement_complete(LLMessageSystem* msg, void**)
 		gAgent.clearBusy();
 	}
 
-	if (avatarp)
+	if (isAgentAvatarValid())
 	{
-		avatarp->mFootPlane.clearVec();
+		gAgentAvatarp->mFootPlane.clearVec();
 	}
 	
 	// send walk-vs-run status
@@ -4285,22 +4335,9 @@ void process_crossed_region(LLMessageSystem* msg, void**)
 	std::string seedCap;
 	msg->getStringFast(_PREHASH_RegionData, _PREHASH_SeedCapability, seedCap);
 
-	U32 region_size_x = 256;
-    msg->getU32(_PREHASH_RegionData, _PREHASH_RegionSizeX, region_size_x);
-
-    U32 region_size_y = 256;
-    msg->getU32(_PREHASH_RegionData, _PREHASH_RegionSizeY, region_size_y);
-
-    //and a little hack for Second Life compatibility
-    if (region_size_y == 0 || region_size_x == 0)
-    {
-        region_size_x = 256;
-        region_size_y = 256;
-    }
-
 	send_complete_agent_movement(sim_host);
 
-	LLViewerRegion* regionp = LLWorld::getInstance()->addRegion(region_handle, sim_host, region_size_x, region_size_y);
+	LLViewerRegion* regionp = LLWorld::getInstance()->addRegion(region_handle, sim_host);
 	regionp->setSeedCapability(seedCap);
 }
 
@@ -6344,7 +6381,7 @@ void container_inventory_arrived(LLViewerObject* object,
 	{
 		// create a new inventory category to put this in
 		LLUUID cat_id;
-		cat_id = gInventory.createNewCategory(gAgent.getInventoryRootID(),
+		cat_id = gInventory.createNewCategory(gInventory.getRootFolderID(),
 											   LLFolderType::FT_NONE,
 											  std::string("Acquired Items")); //TODO: Translate
 

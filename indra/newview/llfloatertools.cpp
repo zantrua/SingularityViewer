@@ -81,12 +81,12 @@
 #include "llviewercontrol.h"
 #include "llviewerjoystick.h"
 #include "lluictrlfactory.h"
-#if MESH_ENABLED
 #include "llmeshrepository.h"
-#endif
 
 #include "qtoolalign.h" //Thank Qarl!
 
+#include "llvograss.h"
+#include "llvotree.h"
 
 // Globals
 LLFloaterTools *gFloaterTools = NULL;
@@ -295,6 +295,8 @@ BOOL	LLFloaterTools::postBuild()
 			llwarns << "Tool button not found! DOA Pending." << llendl;
 		}
 	}
+	mComboTreesGrass = getChild<LLComboBox>("trees_grass");
+	childSetCommitCallback("trees_grass", onSelectTreesGrass, (void*)0);
 	mCheckCopySelection = getChild<LLCheckBoxCtrl>("checkbox copy selection");
 	childSetValue("checkbox copy selection",(BOOL)gSavedSettings.getBOOL("CreateToolCopySelection"));
 	mCheckSticky = getChild<LLCheckBoxCtrl>("checkbox sticky");
@@ -392,6 +394,7 @@ LLFloaterTools::LLFloaterTools()
 	mBtnDuplicate(NULL),
 	mBtnDuplicateInPlace(NULL),
 
+	mComboTreesGrass(NULL),
 	mCheckSticky(NULL),
 	mCheckCopySelection(NULL),
 	mCheckCopyCenters(NULL),
@@ -517,7 +520,6 @@ void LLFloaterTools::refresh()
 	
 	LLStringUtil::format_map_t selection_args;
 	selection_args["COUNT"] = llformat("%.1d", (S32)prim_count);
-#if MESH_ENABLED
 	if(gMeshRepo.meshRezEnabled())
 	{
 		F32 link_cost  = LLSelectMgr::getInstance()->getSelection()->getSelectedObjectCost();
@@ -526,7 +528,6 @@ void LLFloaterTools::refresh()
 		selection_args["PE_STRING"] = getString("status_selectprimequiv", prim_equiv_args);
 	}
 	else
-#endif //MESH_ENABLED
 	{
 		selection_args["PE_STRING"] = "";
 	}
@@ -720,6 +721,8 @@ void LLFloaterTools::updatePopup(LLCoordGL center, MASK mask)
 	BOOL create_visible = (tool == LLToolCompCreate::getInstance());
 
 	mBtnCreate	->setToggleState(	tool == LLToolCompCreate::getInstance() );
+
+	updateTreeGrassCombo(create_visible);
 
 	if (mCheckCopySelection
 		&& mCheckCopySelection->get())
@@ -1057,4 +1060,78 @@ void LLFloaterTools::onFocusReceived()
 {
 	LLToolMgr::getInstance()->setCurrentToolset(gBasicToolset);
 	LLFloater::onFocusReceived();
+}
+
+// static
+void LLFloaterTools::onSelectTreesGrass(LLUICtrl*, void*)
+{
+	const std::string &selected = gFloaterTools->mComboTreesGrass->getValue();
+	LLPCode pcode = LLToolPlacer::getObjectType();
+	if (pcode == LLToolPlacerPanel::sTree) 
+	{
+		gSavedSettings.setString("LastTree", selected);
+	} 
+	else if (pcode == LLToolPlacerPanel::sGrass) 
+	{
+		gSavedSettings.setString("LastGrass", selected);
+	}  
+}
+
+void LLFloaterTools::updateTreeGrassCombo(bool visible)
+{
+	LLTextBox* tree_grass_label = getChild<LLTextBox>("tree_grass_label");
+	if (visible) 
+	{
+		LLPCode pcode = LLToolPlacer::getObjectType();
+		std::map<std::string, S32>::iterator it, end;
+		std::string selected;
+		if (pcode == LLToolPlacerPanel::sTree) 
+		{
+			tree_grass_label->setVisible(visible);
+			LLButton* button = getChild<LLButton>("ToolTree");
+			tree_grass_label->setText(button->getToolTip());
+
+			selected = gSavedSettings.getString("LastTree");
+			it = LLVOTree::sSpeciesNames.begin();
+			end = LLVOTree::sSpeciesNames.end();
+		} 
+		else if (pcode == LLToolPlacerPanel::sGrass) 
+		{
+			tree_grass_label->setVisible(visible);
+			LLButton* button = getChild<LLButton>("ToolGrass");
+			tree_grass_label->setText(button->getToolTip());
+
+			selected = gSavedSettings.getString("LastGrass");
+			it = LLVOGrass::sSpeciesNames.begin();
+			end = LLVOGrass::sSpeciesNames.end();
+		} 
+		else 
+		{
+			mComboTreesGrass->removeall();
+			mComboTreesGrass->setLabel(LLStringExplicit(""));  // LLComboBox::removeall() does not clear the label
+			mComboTreesGrass->setEnabled(false);
+			mComboTreesGrass->setVisible(false);
+			tree_grass_label->setVisible(false);
+			return;
+		}
+
+		mComboTreesGrass->removeall();
+		mComboTreesGrass->add("Random");
+
+		int select = 0, i = 0;
+
+		while (it != end) 
+		{
+			const std::string &species = it->first;
+			mComboTreesGrass->add(species);  ++i;
+			if (species == selected) select = i;
+			++it;
+		}
+		// if saved species not found, default to "Random"
+		mComboTreesGrass->selectNthItem(select);
+		mComboTreesGrass->setEnabled(true);
+	}
+	
+	mComboTreesGrass->setVisible(visible);
+	tree_grass_label->setVisible(visible);
 }

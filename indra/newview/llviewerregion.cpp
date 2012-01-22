@@ -242,9 +242,9 @@ LLViewerRegion::LLViewerRegion(const U64 &handle,
 	mCacheLoaded(FALSE),
 	mCacheDirty(FALSE),
 	mReleaseNotesRequested(FALSE),
-	mCapabilitiesReceived(false),
-	mWidth(region_width_meters)
+	mCapabilitiesReceived(false)
 {
+	mWidth = region_width_meters;
 	mImpl->mOriginGlobal = from_region_handle(handle); 
 	updateRenderMatrix();
 
@@ -256,7 +256,7 @@ LLViewerRegion::LLViewerRegion(const U64 &handle,
 		mImpl->mCompositionp =
 			new LLVLComposition(mImpl->mLandp,
 								grids_per_region_edge,
-								mWidth / grids_per_region_edge);
+								region_width_meters / grids_per_region_edge);
 		mImpl->mCompositionp->setSurface(mImpl->mLandp);
 
 		// Create the surfaces
@@ -269,9 +269,7 @@ LLViewerRegion::LLViewerRegion(const U64 &handle,
 
 	if (!gNoRender)
 	{
-		mParcelOverlay = new LLViewerParcelOverlay(this, mWidth);
-		//Re-init the parcel mgr for this sim
-	    LLViewerParcelMgr::getInstance()->init(mWidth);
+		mParcelOverlay = new LLViewerParcelOverlay(this, region_width_meters);
 	}
 	else
 	{
@@ -1192,6 +1190,7 @@ LLViewerRegion::eCacheUpdateResult LLViewerRegion::cacheFullUpdate(LLViewerObjec
 	eCacheUpdateResult result = CACHE_UPDATE_ADDED;
 	if (mImpl->mCacheMap.size() > MAX_OBJECT_CACHE_ENTRIES)
 	{
+		delete mImpl->mCacheMap.begin()->second ;
 		mImpl->mCacheMap.erase(mImpl->mCacheMap.begin());
 		result = CACHE_UPDATE_REPLACED;
 		
@@ -1492,6 +1491,7 @@ void LLViewerRegionImpl::buildCapabilityNames(LLSD& capabilityNames)
 	//capabilityNames.append("AvatarPickerSearch"); //Display name/SLID lookup (llfloateravatarpicker.cpp)
 	capabilityNames.append("ChatSessionRequest");
 	capabilityNames.append("CopyInventoryFromNotecard");
+	capabilityNames.append("CreateInventoryCategory");
 	capabilityNames.append("DispatchRegionInfo");
 	capabilityNames.append("EstateChangeInfo");
 	capabilityNames.append("EventQueueGet");
@@ -1509,11 +1509,9 @@ void LLViewerRegionImpl::buildCapabilityNames(LLSD& capabilityNames)
 
 	capabilityNames.append("GetDisplayNames");
 	capabilityNames.append("GetTexture");
-#if MESH_ENABLED
 	capabilityNames.append("GetMesh");
 	capabilityNames.append("GetObjectCost");
 	capabilityNames.append("GetObjectPhysicsData");
-#endif //MESH_ENABLED
 	capabilityNames.append("GroupProposalBallot");
 
 	capabilityNames.append("HomeLocation");
@@ -1732,17 +1730,29 @@ std::string LLViewerRegion::getDescription() const
     return stringize(*this);
 }
 
-#if MESH_ENABLED
 bool LLViewerRegion::meshUploadEnabled() const
 {
-	return (mSimulatorFeatures.has("MeshUploadEnabled") &&
-		mSimulatorFeatures["MeshUploadEnabled"].asBoolean());
+	if (getCapability("SimulatorFeatures").empty())
+	{
+		return !getCapability("MeshUploadFlag").empty();
+	}
+	else
+	{
+		return (mSimulatorFeatures.has("MeshUploadEnabled") &&
+				mSimulatorFeatures["MeshUploadEnabled"].asBoolean());
+	}
 }
 
 bool LLViewerRegion::meshRezEnabled() const
 {
-	return (mSimulatorFeatures.has("MeshRezEnabled") &&
+	if (getCapability("SimulatorFeatures").empty())
+	{
+		return !getCapability("GetMesh").empty();
+	}
+	else
+	{
+		return (mSimulatorFeatures.has("MeshRezEnabled") &&
 				mSimulatorFeatures["MeshRezEnabled"].asBoolean());
+	}
 }
-#endif //MESH_ENABLED
 

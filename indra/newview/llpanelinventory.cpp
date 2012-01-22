@@ -30,12 +30,12 @@
  * $/LicenseInfo$
  */
 
-//*****************************************************************************
+// *****************************************************************************
 //
 // Implementation of the panel inventory - used to view and control a
 // task's inventory.
 //
-//*****************************************************************************
+// *****************************************************************************
 
 #include "llviewerprecompiledheaders.h"
 
@@ -49,8 +49,11 @@
 #include "lldarray.h"
 #include "llfontgl.h"
 #include "llassetstorage.h"
+#include "llfoldervieweventlistener.h"
 #include "llinventory.h"
+#include "llinventorybridge.h"
 #include "llinventorydefines.h"
+#include "llinventoryicon.h"
 #include "llnotificationsutil.h"
 
 #include "llagent.h"
@@ -61,7 +64,8 @@
 #include "llfolderview.h"
 #include "llgl.h"
 #include "llinventorymodel.h"
-#include "llinventoryview.h"
+#include "llinventoryicon.h"
+#include "llinventorybridge.h"
 #include "llmenugl.h"
 #include "llpreviewanim.h"
 #include "llpreviewgesture.h"
@@ -242,7 +246,6 @@ void LLTaskInvFVBridge::buyItem()
 	{
         LLSD args;
         args["PRICE"] = llformat("%d",sale_info.getSalePrice());
-        args["CURRENCY"] = gHippoGridManager->getConnectedGrid()->getCurrencySymbol();
         args["OWNER"] = owner_name;
         if (sale_info.getSaleType() != LLSaleInfo::FS_CONTENTS)
         {
@@ -361,7 +364,7 @@ LLUIImagePtr LLTaskInvFVBridge::getIcon() const
 		item_is_multi = TRUE;
 	}
 
-	return get_item_icon(LLAssetType::AT_OBJECT, LLInventoryType::IT_OBJECT, 0, item_is_multi );
+	return LLInventoryIcon::getIcon(LLAssetType::AT_OBJECT, LLInventoryType::IT_OBJECT, 0, item_is_multi );
 }
 
 void LLTaskInvFVBridge::openItem()
@@ -1002,7 +1005,7 @@ LLTaskTextureBridge::LLTaskTextureBridge(
 
 LLUIImagePtr LLTaskTextureBridge::getIcon() const
 {
-	return get_item_icon(LLAssetType::AT_TEXTURE, mInventoryType, 0, FALSE);
+	return LLInventoryIcon::getIcon(LLAssetType::AT_TEXTURE, mInventoryType, 0, FALSE);
 }
 
 void LLTaskTextureBridge::openItem()
@@ -1062,7 +1065,7 @@ LLTaskSoundBridge::LLTaskSoundBridge(
 
 LLUIImagePtr LLTaskSoundBridge::getIcon() const
 {
-	return get_item_icon(LLAssetType::AT_SOUND, LLInventoryType::IT_SOUND, 0, FALSE);
+	return LLInventoryIcon::getIcon(LLAssetType::AT_SOUND, LLInventoryType::IT_SOUND, 0, FALSE);
 }
 
 void LLTaskSoundBridge::openItem()
@@ -1196,7 +1199,7 @@ LLTaskLandmarkBridge::LLTaskLandmarkBridge(
 
 LLUIImagePtr LLTaskLandmarkBridge::getIcon() const
 {
-	return get_item_icon(LLAssetType::AT_LANDMARK, LLInventoryType::IT_LANDMARK, 0, FALSE);
+	return LLInventoryIcon::getIcon(LLAssetType::AT_LANDMARK, LLInventoryType::IT_LANDMARK, 0, FALSE);
 }
 
 
@@ -1227,7 +1230,7 @@ LLTaskCallingCardBridge::LLTaskCallingCardBridge(
 
 LLUIImagePtr LLTaskCallingCardBridge::getIcon() const
 {
-	return get_item_icon(LLAssetType::AT_CALLINGCARD, LLInventoryType::IT_CALLINGCARD, 0, FALSE);
+	return LLInventoryIcon::getIcon(LLAssetType::AT_CALLINGCARD, LLInventoryType::IT_CALLINGCARD, 0, FALSE);
 }
 
 BOOL LLTaskCallingCardBridge::isItemRenameable() const
@@ -1267,7 +1270,7 @@ LLTaskScriptBridge::LLTaskScriptBridge(
 
 LLUIImagePtr LLTaskScriptBridge::getIcon() const
 {
-	return get_item_icon(LLAssetType::AT_SCRIPT, LLInventoryType::IT_LSL, 0, FALSE);
+	return LLInventoryIcon::getIcon(LLAssetType::AT_SCRIPT, LLInventoryType::IT_LSL, 0, FALSE);
 }
 
 
@@ -1381,7 +1384,7 @@ LLUIImagePtr LLTaskObjectBridge::getIcon() const
 		item_is_multi = TRUE;
 	}
 
-	return get_item_icon(LLAssetType::AT_OBJECT, LLInventoryType::IT_OBJECT, 0, item_is_multi);
+	return LLInventoryIcon::getIcon(LLAssetType::AT_OBJECT, LLInventoryType::IT_OBJECT, 0, item_is_multi);
 }
 
 ///----------------------------------------------------------------------------
@@ -1411,7 +1414,7 @@ LLTaskNotecardBridge::LLTaskNotecardBridge(
 
 LLUIImagePtr LLTaskNotecardBridge::getIcon() const
 {
-	return get_item_icon(LLAssetType::AT_NOTECARD, LLInventoryType::IT_NOTECARD, 0, FALSE);
+	return LLInventoryIcon::getIcon(LLAssetType::AT_NOTECARD, LLInventoryType::IT_NOTECARD, 0, FALSE);
 }
 
 void LLTaskNotecardBridge::openItem()
@@ -1485,7 +1488,7 @@ LLTaskGestureBridge::LLTaskGestureBridge(
 
 LLUIImagePtr LLTaskGestureBridge::getIcon() const
 {
-	return get_item_icon(LLAssetType::AT_GESTURE, LLInventoryType::IT_GESTURE, 0, FALSE);
+	return LLInventoryIcon::getIcon(LLAssetType::AT_GESTURE, LLInventoryType::IT_GESTURE, 0, FALSE);
 }
 
 void LLTaskGestureBridge::openItem()
@@ -1545,7 +1548,7 @@ LLTaskAnimationBridge::LLTaskAnimationBridge(
 
 LLUIImagePtr LLTaskAnimationBridge::getIcon() const
 {
-	return get_item_icon(LLAssetType::AT_ANIMATION, LLInventoryType::IT_ANIMATION, 0, FALSE);
+	return LLInventoryIcon::getIcon(LLAssetType::AT_ANIMATION, LLInventoryType::IT_ANIMATION, 0, FALSE);
 }
 
 void LLTaskAnimationBridge::openItem()
@@ -1629,7 +1632,7 @@ LLTaskWearableBridge::LLTaskWearableBridge(
 
 LLUIImagePtr LLTaskWearableBridge::getIcon() const
 {
-	return get_item_icon(mAssetType, LLInventoryType::IT_WEARABLE, mFlags, FALSE );
+	return LLInventoryIcon::getIcon(mAssetType, LLInventoryType::IT_WEARABLE, mFlags, FALSE );
 }
 
 

@@ -65,9 +65,8 @@
 #include "llworld.h"
 #include "v2math.h"
 #include "llvoavatar.h"
-#if MESH_ENABLED
 #include "llmeshrepository.h"
-#endif //MESH_ENABLED
+#include "hippolimits.h"
 
 
 const F32 MAX_MANIP_SELECT_DISTANCE_SQUARED = 11.f * 11.f;
@@ -98,22 +97,8 @@ const LLManip::EManipPart MANIPULATOR_IDS[NUM_MANIPULATORS] =
 
 F32 get_default_max_prim_scale(bool is_flora) 
 {
-	// a bit of a hack, but if it's foilage, we don't want to use the
-	// new larger scale which would result in giant trees and grass
-#if MESH_ENABLED
-	if (gMeshRepo.meshRezEnabled() &&
-		!is_flora)
-	{
-		return DEFAULT_MAX_PRIM_SCALE;
-	}
-	else
-	{	
-		return DEFAULT_MAX_PRIM_SCALE_NO_MESH;
-	}
-#endif //MESH_ENABLED
-#if !MESH_ENABLED
-	return DEFAULT_MAX_PRIM_SCALE;
-#endif //!MESH_ENABLED
+//CF: both scales are 256, so what?, I now use gridmanagersetting
+	return gHippoLimits->getMaxPrimScale();
 }
 
 // static
@@ -231,12 +216,12 @@ void LLManipScale::render()
 	
 	if( canAffectSelection() )
 	{
-		glMatrixMode(GL_MODELVIEW);
-		glPushMatrix();
+		gGL.matrixMode(LLRender::MM_MODELVIEW);
+		gGL.pushMatrix();
 		if (mObjectSelection->getSelectType() == SELECT_TYPE_HUD)
 		{
 			F32 zoom = gAgentCamera.mHUDCurZoom;
-			glScalef(zoom, zoom, zoom);
+			gGL.scalef(zoom, zoom, zoom);
 		}
 
 		////////////////////////////////////////////////////////////////////////
@@ -288,14 +273,14 @@ void LLManipScale::render()
 		LLVector3 pos_agent = bbox.getPositionAgent();
 		LLQuaternion rot = bbox.getRotation();
 
-		glMatrixMode(GL_MODELVIEW);
-		glPushMatrix();
+		gGL.matrixMode(LLRender::MM_MODELVIEW);
+		gGL.pushMatrix();
 		{
-			glTranslatef(pos_agent.mV[VX], pos_agent.mV[VY], pos_agent.mV[VZ]);
+			gGL.translatef(pos_agent.mV[VX], pos_agent.mV[VY], pos_agent.mV[VZ]);
 
 			F32 angle_radians, x, y, z;
 			rot.getAngleAxis(&angle_radians, &x, &y, &z);
-			glRotatef(angle_radians * RAD_TO_DEG, x, y, z);
+			gGL.rotatef(angle_radians * RAD_TO_DEG, x, y, z);
 
 			
 			{
@@ -317,13 +302,13 @@ void LLManipScale::render()
 				glPolygonOffset( 0.f, 0.f);
 			}
 		}
-		glPopMatrix();
+		gGL.popMatrix();
 
 		if (mManipPart != LL_NO_PART)
 		{
 			renderSnapGuides(bbox);
 		}
-		glPopMatrix();
+		gGL.popMatrix();
 
 		renderXYZ(bbox.getExtentLocal());
 	}
@@ -733,17 +718,17 @@ void LLManipScale::renderEdges( const LLBBox& bbox )
 		LLVector3 direction = edgeToUnitVector( part );
 		LLVector3 center_to_edge = unitVectorToLocalBBoxExtent( direction, bbox );
 
-		glPushMatrix();
+		gGL.pushMatrix();
 		{
-			glTranslatef( center_to_edge.mV[0], center_to_edge.mV[1], center_to_edge.mV[2] );
+			gGL.translatef( center_to_edge.mV[0], center_to_edge.mV[1], center_to_edge.mV[2] );
 			conditionalHighlight( part );
-			glScalef( 
+			gGL.scalef( 
 				direction.mV[0] ? edge_width : extent.mV[VX],
 				direction.mV[1] ? edge_width : extent.mV[VY],
 				direction.mV[2] ? edge_width : extent.mV[VZ] );
 			gBox.render();
 		}
-		glPopMatrix();
+		gGL.popMatrix();
 	}
 }
 
@@ -780,13 +765,13 @@ void LLManipScale::renderBoxHandle( F32 x, F32 y, F32 z )
 	gGL.getTexUnit(0)->unbind(LLTexUnit::TT_TEXTURE);
 	LLGLDepthTest gls_depth(GL_FALSE);
 
-	glPushMatrix();
+	gGL.pushMatrix();
 	{
-		glTranslatef( x, y, z );
-		glScalef( mScaledBoxHandleSize, mScaledBoxHandleSize, mScaledBoxHandleSize );
+		gGL.translatef( x, y, z );
+		gGL.scalef( mScaledBoxHandleSize, mScaledBoxHandleSize, mScaledBoxHandleSize );
 		gBox.render();
 	}
-	glPopMatrix();
+	gGL.popMatrix();
 }
 
 
@@ -802,16 +787,16 @@ void LLManipScale::renderAxisHandle( const LLVector3& start, const LLVector3& en
 		LLVector3 delta = end - offset_start;
 		LLVector3 pos = offset_start + 0.5f * delta;
 
-		glPushMatrix();
+		gGL.pushMatrix();
 		{
-			glTranslatef( pos.mV[VX], pos.mV[VY], pos.mV[VZ] );
-			glScalef( 
+			gGL.translatef( pos.mV[VX], pos.mV[VY], pos.mV[VZ] );
+			gGL.scalef( 
 				mBoxHandleSize + llabs(delta.mV[VX]),
 				mBoxHandleSize + llabs(delta.mV[VY]),
 				mBoxHandleSize + llabs(delta.mV[VZ]));
 			gBox.render();
 		}
-		glPopMatrix();
+		gGL.popMatrix();
 	}
 	else
 	{
@@ -1853,10 +1838,10 @@ void LLManipScale::renderSnapGuides(const LLBBox& bbox)
 				std::string help_text = "Move mouse cursor over ruler";
 				LLColor4 help_text_color = LLColor4::white;
 				help_text_color.mV[VALPHA] = clamp_rescale(mHelpTextTimer.getElapsedTimeF32(), sHelpTextVisibleTime, sHelpTextVisibleTime + sHelpTextFadeTime, grid_alpha, 0.f);
-				hud_render_utf8text(help_text, help_text_pos, *big_fontp, LLFontGL::NORMAL, -0.5f * big_fontp->getWidthF32(help_text), 3.f, help_text_color, mObjectSelection->getSelectType() == SELECT_TYPE_HUD);
+				hud_render_utf8text(help_text, help_text_pos, *big_fontp, LLFontGL::NORMAL, LLFontGL::NO_SHADOW, -0.5f * big_fontp->getWidthF32(help_text), 3.f, help_text_color, mObjectSelection->getSelectType() == SELECT_TYPE_HUD);
 				help_text = "to snap to grid";
 				help_text_pos -= LLViewerCamera::getInstance()->getUpAxis() * mSnapRegimeOffset * 0.4f;
-				hud_render_utf8text(help_text, help_text_pos, *big_fontp, LLFontGL::NORMAL, -0.5f * big_fontp->getWidthF32(help_text), 3.f, help_text_color, mObjectSelection->getSelectType() == SELECT_TYPE_HUD);
+				hud_render_utf8text(help_text, help_text_pos, *big_fontp, LLFontGL::NORMAL, LLFontGL::NO_SHADOW, -0.5f * big_fontp->getWidthF32(help_text), 3.f, help_text_color, mObjectSelection->getSelectType() == SELECT_TYPE_HUD);
 			}
 		}
 	}
