@@ -3273,14 +3273,14 @@ void LLVOAvatar::getClientInfo(std::string& client, LLColor4& color, BOOL useCom
 	}
 	std::string uuid_str = idx.asString(); //UUID of the head texture
 
-	static const LLCachedControl<LLColor4>	avatar_name_color(gColors,"AvatarNameColor",LLColor4(LLColor4U(251, 175, 93, 255)) );
+	static const LLCachedControl<LLColor4> avatar_name_color(gColors,"AvatarNameColor", LLColor4(LLColor4U(251, 175, 93, 255)) );
 	if (isSelf())
 	{
 		static const LLCachedControl<bool>			ascent_use_custom_tag("AscentUseCustomTag", false);
 		static const LLCachedControl<LLColor4>		ascent_custom_tag_color("AscentCustomTagColor", LLColor4(.5f,1.f,.25f,1.f));
-		static const LLCachedControl<std::string>	ascent_custom_tag_label("AscentCustomTagLabel","custom");
-		static const LLCachedControl<bool>			ascent_use_tag("AscentUseTag",true);
-		static const LLCachedControl<std::string>	ascent_report_client_uuid("AscentReportClientUUID","f25263b7-6167-4f34-a4ef-af65213b2e39");
+		static const LLCachedControl<std::string>	ascent_custom_tag_label("AscentCustomTagLabel", "custom");
+		static const LLCachedControl<bool>			ascent_use_tag("AscentUseTag", true);
+		static const LLCachedControl<std::string>	ascent_report_client_uuid("AscentReportClientUUID", "f25263b7-6167-4f34-a4ef-af65213b2e39");
 
 		if (ascent_use_custom_tag)
 		{
@@ -3356,17 +3356,16 @@ void LLVOAvatar::getClientInfo(std::string& client, LLColor4& color, BOOL useCom
 		if(cllsd["multiple"].asReal() != 0)
 		{
 			color += colour;
-			color *= 1.0/(cllsd["multiple"].asReal()+1.0f);
+			color *= 1.0f / (cllsd["multiple"].asReal()+1.0f);
 		}
 		else
 			color = colour;
 	}
 	else
 	{
-		color = avatar_name_color;
-		color.setAlpha(1.f);
-		client = "?";
-		//llinfos << "Apparently this tag isn't registered: " << uuid_str << llendl;
+		//zmod - Use the new system already, good god...
+		color = getTE(0)->getColor();
+		client = uuid_str;
 	}
 
 	/*if (false)

@@ -555,8 +555,6 @@ void LLVOAvatarSelf::updateRegion(LLViewerRegion *regionp)
 //virtual
 void LLVOAvatarSelf::idleUpdateTractorBeam()
 {
-
-
 	if(gSavedSettings.getBOOL("DisablePointAtAndBeam"))
 	{
 		return;

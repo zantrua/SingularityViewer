@@ -9,6 +9,57 @@
 		<string>settings_rlv.xml</string>
 	</array>
 
+    <key>NRMiniMapUseLine</key>
+    <map>
+      <key>Comment</key>
+      <string>Use aim line on minimap</string>
+      <key>Persist</key>
+      <integer>1</integer>
+      <key>Type</key>
+      <string>Boolean</string>
+      <key>Value</key>
+      <integer>1</integer>
+    </map>
+    <key>NRMiniMapUseGrid</key>
+    <map>
+      <key>Comment</key>
+      <string>Use grid on minimap</string>
+      <key>Persist</key>
+      <integer>1</integer>
+      <key>Type</key>
+      <string>Boolean</string>
+      <key>Value</key>
+      <integer>1</integer>
+    </map>
+    <key>NRMiniMapGridResolution</key>
+    <map>
+      <key>Comment</key>
+      <string>Number of squares on a side of the minimap grid</string>
+      <key>Persist</key>
+      <integer>1</integer>
+      <key>Type</key>
+      <string>S32</string>
+      <key>Value</key>
+      <integer>4</integer>
+    </map>
+    <key>NRMiniMapGridColor</key>
+    <map>
+      <key>Comment</key>
+      <string>Color of lines on minimap grid</string>
+      <key>Persist</key>
+      <integer>1</integer>
+      <key>Type</key>
+      <string>Color4</string>
+      <key>Value</key>
+      <array>
+        <real>0.0</real>
+        <real>1.0</real>
+        <real>0.0</real>
+        <real>1.0</real>
+      </array>
+      <key>IsCOA</key>
+      <integer>1</integer>
+    </map>
   <key>CCSAllowNameplateOverride</key>
   <map>
     <key>Comment</key>
