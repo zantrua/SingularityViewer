@@ -244,7 +244,6 @@ LLViewerRegion::LLViewerRegion(const U64 &handle,
 	mReleaseNotesRequested(FALSE),
 	mCapabilitiesReceived(false),
 	mWidth(region_width_meters)
-	mCapabilitiesReceived(false)
 {
 	mWidth = region_width_meters;
 	mImpl->mOriginGlobal = from_region_handle(handle); 

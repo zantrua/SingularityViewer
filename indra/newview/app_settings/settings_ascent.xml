@@ -13,7 +13,6 @@
       <key>Value</key>
       <integer>1</integer>
     </map>
-<<<<<<< HEAD
     <key>SianaRenderOmitBlankVBO</key>
 		<map>
 			<key>Comment</key>
@@ -25,8 +24,6 @@
 			<key>Value</key>
 			<integer>1</integer>
 		</map>
-=======
->>>>>>> a39bf619775fce29521a91e7671205334bab7687
 		<key>SianaUnsitOnCamReset</key>
 		<map>
 			<key>Comment</key>

@@ -8,8 +8,6 @@
 		<string>settings_sh.xml</string>
 		<string>settings_rlv.xml</string>
 	</array>
-
-<<<<<<< HEAD
     <key>NRMiniMapUseLine</key>
     <map>
       <key>Comment</key>
@@ -61,7 +59,6 @@
       <key>IsCOA</key>
       <integer>1</integer>
     </map>
-=======
   <key>SGTextFadeDistance</key>
   <map>
     <key>Comment</key>
@@ -73,8 +70,6 @@
     <key>Value</key>
     <integer>8.0</integer>
   </map>
-
->>>>>>> a39bf619775fce29521a91e7671205334bab7687
   <key>CCSAllowNameplateOverride</key>
   <map>
     <key>Comment</key>
@@ -506,53 +501,6 @@
     <key>Value</key>
     <integer>100</integer>
   </map>
-<<<<<<< HEAD
-    <key>zmm_deffov</key>
-    <map>
-      <key>Comment</key>
-      <string>default field of view for right mouse zoom</string>
-      <key>Persist</key>
-      <integer>1</integer>
-      <key>Type</key>
-      <string>F32</string>
-      <key>Value</key>
-      <real>1.0</real>
-    </map>
-    <key>zmm_mlfov</key>
-    <map>
-      <key>Comment</key>
-      <string>1=norm, under1 zoom out, over1 zoom in</string>
-      <key>Persist</key>
-      <integer>1</integer>
-      <key>Type</key>
-      <string>F32</string>
-      <key>Value</key>
-      <real>1</real>
-    </map>
-    <key>zmm_isinml</key>
-    <map>
-      <key>Comment</key>
-      <string>mouselook</string>
-      <key>Persist</key>
-      <integer>0</integer>
-      <key>Type</key>
-      <string>Boolean</string>
-      <key>Value</key>
-      <integer>0</integer>
-    </map>
-    <key>zmm_rightmousedown</key>
-    <map>
-      <key>Comment</key>
-      <string>insert rude comment here</string>
-      <key>Persist</key>
-      <integer>0</integer>
-      <key>Type</key>
-      <string>Boolean</string>
-      <key>Value</key>
-      <integer>0</integer>
-    </map>
-=======
-  
   <key>zmm_deffov</key>
   <map>
     <key>Comment</key>
@@ -597,8 +545,6 @@
     <key>Value</key>
     <integer>0</integer>
   </map>
-
->>>>>>> a39bf619775fce29521a91e7671205334bab7687
   <key>AllowLargeSounds</key>
   <map>
     <key>Comment</key>
@@ -1005,7 +951,6 @@
       <key>Type</key>
       <string>Boolean</string>
       <key>Value</key>
-<<<<<<< HEAD
       <integer>1</integer>
   </map>
     <key>ShyotlRenderVBOStrideMode</key>
@@ -1043,10 +988,6 @@
       <key>Value</key>
       <integer>0</integer>
     </map>  
-=======
-      <integer>0</integer>
-	</map>
->>>>>>> a39bf619775fce29521a91e7671205334bab7687
     <key>ResetFocusOnSelfClick</key>
 		<map>
 		<key>Comment</key>
@@ -9396,7 +9337,7 @@
       <key>Type</key>
       <string>Boolean</string>
       <key>Value</key>
-      <integer>0</integer>
+      <integer>1</integer>
     </map>
     <key>PitchFromMousePosition</key>
     <map>
